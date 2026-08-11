@@ -7,7 +7,7 @@ class CapacidadesAtenas:
     ollama: bool = True
 
     voz_entrada: bool = False
-    voz_salida: bool = False
+    voz_salida: bool = True
 
     vision: bool = False
     memoria_persistente: bool = False
