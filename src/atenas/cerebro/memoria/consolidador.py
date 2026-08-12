@@ -67,4 +67,18 @@ class ConsolidadorMemoria:
         except Exception as error:
             print(f"[ATENAS][GRAFO] No fue posible actualizar el grafo: {error}")
 
+        try:
+            self.storage.vectores.guardar(
+                memoria_tipo=tipo,
+                memoria_id=memoria_id,
+                contenido=experiencia.contenido,
+                dominio=(experiencia.dominio or "general"),
+                categoria=(experiencia.subcategoria or experiencia.tipo or "general"),
+                importancia=max(experiencia.importancia,score,),
+                confianza=(experiencia.confianza),
+            )
+
+        except Exception as error:
+            print(f"[ATENAS][VECTOR] No fue posible generar la memoria vectorial: {error}")
+
         return {"guardada": True,"id": memoria_id,"tipo": tipo,"relevancia": score,}

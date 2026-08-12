@@ -189,3 +189,77 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_edges_destino
                 ON knowledge_edges(destino_id)
             """)
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS vector_memories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    memoria_tipo TEXT NOT NULL,
+                    memoria_id INTEGER NOT NULL,
+                    contenido TEXT NOT NULL,
+                    dominio TEXT,
+                    categoria TEXT,
+                    vector_path TEXT NOT NULL,
+                    modelo TEXT NOT NULL,
+                    dimensiones INTEGER NOT NULL,
+                    importancia REAL DEFAULT 0.5,
+                    confianza REAL DEFAULT 0.7,
+                    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(memoria_tipo,memoria_id)
+                )
+            """)
+
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_vector_memoria
+                ON vector_memories(memoria_tipo,memoria_id)
+            """)
+
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_vector_dominio
+                ON vector_memories(dominio)
+            """)
+
+            ##AGENTE
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS agent_objectives (
+                    id TEXT PRIMARY KEY,
+                    nombre TEXT NOT NULL,
+                    descripcion TEXT NOT NULL,
+                    prioridad REAL DEFAULT 0.5,
+                    estado TEXT DEFAULT 'activo',
+                    autonomia INTEGER DEFAULT 1,
+                    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS agent_tasks (
+                    id TEXT PRIMARY KEY,
+                    descripcion TEXT NOT NULL,
+                    objetivo_id TEXT,
+                    prioridad REAL DEFAULT 0.5,
+                    estado TEXT DEFAULT 'pendiente',
+                    requiere_confirmacion INTEGER DEFAULT 0,
+                    resultado TEXT,
+                    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    actualizado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(objetivo_id)
+                        REFERENCES agent_objectives(id)
+                )
+            """)
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS agent_actions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pendiente_id TEXT,
+                    herramienta TEXT NOT NULL,
+                    argumentos TEXT,
+                    exito INTEGER DEFAULT 0,
+                    resultado TEXT,
+                    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(pendiente_id)
+                        REFERENCES agent_tasks(id)
+                )
+            """)
