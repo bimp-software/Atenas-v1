@@ -55,6 +55,10 @@ from src.atenas.cerebro.investigacion import (
     ConsolidadorInvestigacion,
 )
 
+from src.atenas.cerebro.investigacion.clasificador_consulta import (
+    ClasificadorConsulta,
+)
+
 class NucleoConversacional:
 
     def __init__(
@@ -163,35 +167,14 @@ class NucleoConversacional:
         # =====================================================
         # AGENTE
         # =====================================================
-
-        self.agente = (
-            AgenteAtenas(
-                storage=self.storage,
-                llm=self.llm,
-            )
-        )
-
-        # Resultado de la última acción autónoma.
+        self.agente = (AgenteAtenas(storage=self.storage,llm=self.llm,))
         self.ultima_accion_agente = None
-
-        self.investigador = Investigador(
-            storage=self.storage
-        )
-
-        self.sintetizador_investigacion = (
-            SintetizadorInvestigacion(
-                llm=self.llm
-            )
-        )
-
-        self.consolidador_investigacion = (
-            ConsolidadorInvestigacion(
-                storage=self.storage,
-                hipocampo=self.hipocampo,
-            )
-        )
+        self.investigador = Investigador(storage=self.storage)
+        self.sintetizador_investigacion = (SintetizadorInvestigacion(llm=self.llm))
+        self.consolidador_investigacion = (ConsolidadorInvestigacion(storage=self.storage,hipocampo=self.hipocampo,))
 
         self.ultima_investigacion = None
+        self.clasificador_consulta = (ClasificadorConsulta())
 
 
     # =========================================================
@@ -215,23 +198,37 @@ class NucleoConversacional:
     # =========================================================
     # CREAR CONTEXTO
     # =========================================================
-    def _crear_mensajes(
-        self,
-        mensaje_usuario: str,
-        contexto_internet: str | None = None,
-    ) -> list[dict[str, str]]:
+    def _crear_mensajes(self,mensaje_usuario: str,contexto_internet: str | None = None,) -> list[dict[str, str]]:
+        # =====================================================
+        # CLASIFICAR EL TIPO DE CONSULTA
+        # =====================================================
+        clasificacion_consulta = (self.clasificador_consulta.clasificar(mensaje_usuario))
 
-        memoria_contexto = (
-            self.recuperador_memoria
-            .contexto_para_llm(
-                mensaje_usuario
-            )
-        )
+        # =====================================================
+        # MEMORIA
+        # =====================================================
+        memoria_contexto = ""
 
-        system_prompt = (
-            construir_system_prompt()
-        )
+        # Para conversación casual, identidad y capacidades
+        # NO inyectamos recuerdos semánticos.
+        #
+        # Estas cosas se resuelven con:
+        # - system prompt
+        # - estado actual
+        # - conversación reciente
 
+        if clasificacion_consulta.tipo not in {"conversacion","identidad","capacidad",}:
+            memoria_contexto = (self.recuperador_memoria.contexto_para_llm(mensaje_usuario))
+
+        # =====================================================
+        # SYSTEM PROMPT
+        # =====================================================
+
+        system_prompt = (construir_system_prompt())
+
+        # =====================================================
+        # MEMORIA RELEVANTE
+        # =====================================================
         if memoria_contexto:
 
             system_prompt += (
@@ -240,7 +237,7 @@ class NucleoConversacional:
             )
 
         # =====================================================
-        # INFORMACIÓN INVESTIGADA AHORA
+        # INTERNET
         # =====================================================
 
         if contexto_internet:
@@ -251,13 +248,14 @@ class NucleoConversacional:
                 "EN INTERNET:\n\n"
                 + contexto_internet
                 + "\n\n"
-                "Utiliza esta información para "
-                "responder la consulta actual. "
-                "No inventes datos que no estén "
-                "respaldados por estos resultados. "
-                "No afirmes que esta información "
-                "formaba parte de tu memoria anterior."
+                "Utiliza esta información únicamente "
+                "para responder la consulta actual. "
+                "No inventes información adicional."
             )
+
+        # =====================================================
+        # MENSAJES
+        # =====================================================
 
         mensajes = [
             {

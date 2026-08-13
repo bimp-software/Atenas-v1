@@ -12,24 +12,45 @@ from .detector_desconocimiento import (
     DetectorDesconocimiento,
 )
 
+from .clasificador_consulta import (
+    ClasificadorConsulta,
+)
+
 
 class Investigador:
 
-    def __init__(
-        self,
-        storage: StorageManager,
-    ):
-
+    def __init__(self,storage: StorageManager,):
         self.storage = storage
-
-        self.detector = (
-            DetectorDesconocimiento()
-        )
+        self.detector = (DetectorDesconocimiento())
+        self.clasificador_consulta = (ClasificadorConsulta())
 
     def evaluar_consulta(
         self,
         consulta: str,
     ) -> dict:
+
+        clasificacion_consulta = (
+            self.clasificador_consulta.clasificar(
+                consulta
+            )
+        )
+
+        if not clasificacion_consulta.permite_internet:
+
+            return {
+                "necesita_investigar": False,
+                "incertidumbre": 0.0,
+                "mejor_similitud": 0.0,
+                "cobertura_conceptual": 1.0,
+                "terminos_encontrados": [],
+                "terminos_desconocidos": [],
+                "motivos": [
+                    clasificacion_consulta.motivo
+                ],
+                "tipo_consulta":
+                    clasificacion_consulta.tipo,
+                "internet_permitido": False,
+            }
 
         consulta = consulta.strip()
 
@@ -78,21 +99,22 @@ class Investigador:
 
             relaciones = []
 
-        resultado = (
-            self.detector.evaluar(
-                consulta=consulta,
-                memorias=memorias,
-                relaciones=relaciones,
-            )
+        resultado = self.detector.evaluar(
+            consulta=consulta,
+            memorias=memorias,
+            relaciones=relaciones,
         )
 
-        resultado[
-            "memorias"
-        ] = memorias
+        resultado["memorias"] = memorias
+        resultado["relaciones"] = relaciones
 
-        resultado[
-            "relaciones"
-        ] = relaciones
+        resultado["tipo_consulta"] = (
+            clasificacion_consulta.tipo
+        )
+
+        resultado["internet_permitido"] = (
+            clasificacion_consulta.permite_internet
+        )
 
         return resultado
 
@@ -117,6 +139,38 @@ class Investigador:
                 "error": "consulta_vacia",
                 "resultados": [],
             }
+
+        # =====================================================
+        # CLASIFICAR CONSULTA
+        # =====================================================
+
+        clasificacion = (
+            self.clasificador_consulta
+            .clasificar(
+                consulta
+            )
+        )
+
+        # =====================================================
+        # INTERNET NO CORRESPONDE
+        # =====================================================
+
+        if (
+            not forzar
+            and not clasificacion.permite_internet
+        ):
+
+            return {
+                "ok": True,
+                "investigo": False,
+                "motivo": clasificacion.motivo,
+                "tipo_consulta": clasificacion.tipo,
+                "resultados": [],
+            }
+
+        # =====================================================
+        # EVALUAR CONOCIMIENTO LOCAL
+        # =====================================================
 
         evaluacion = (
             self.evaluar_consulta(
@@ -165,6 +219,10 @@ class Investigador:
             "investigo": True,
 
             "forzada": forzar,
+
+            "tipo_consulta": (
+                clasificacion.tipo
+            ),
 
             "evaluacion": evaluacion,
 
