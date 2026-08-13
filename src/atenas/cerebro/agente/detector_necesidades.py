@@ -2,18 +2,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.atenas.cerebro.memoria.clasificador import ClasificadorMemoria
-from src.atenas.memoria.store_manager import StorageManager
+from src.atenas.cerebro.memoria.clasificador import (
+    ClasificadorMemoria,
+)
 
-from .objetivos import GestorObjetivos, Objetivo
+from src.atenas.memoria.store_manager import (
+    StorageManager,
+)
+
+from .objetivos import (
+    GestorObjetivos,
+    Objetivo,
+)
 
 
 @dataclass
 class NecesidadDetectada:
     descripcion: str
     objetivo_id: str
+
     prioridad: float
     confianza: float
+
     tipo: str
 
     dominio: str | None = None
@@ -23,16 +33,6 @@ class NecesidadDetectada:
 
 
 class DetectorNecesidades:
-    """
-    Detector híbrido de iniciativa de ATENAS.
-
-    Utiliza:
-    - reglas rápidas;
-    - clasificación semántica;
-    - memoria vectorial;
-    - grafo de conocimiento;
-    - objetivos activos.
-    """
 
     INDICADORES_CAMBIO = (
         "voy a",
@@ -67,20 +67,14 @@ class DetectorNecesidades:
 
     def __init__(
         self,
-        storage: StorageManager | None = None,
+        storage: StorageManager,
     ):
-        self.storage = (
-            storage
-            or StorageManager()
-        )
+        # Ya no creamos otro StorageManager.
+        self.storage = storage
 
         self.clasificador = (
             ClasificadorMemoria()
         )
-
-    # =========================================================
-    # DETECTAR
-    # =========================================================
 
     def detectar(
         self,
@@ -103,25 +97,28 @@ class DetectorNecesidades:
 
         for objetivo in objetivos.activos():
 
+            if not objetivo.autonomia:
+                continue
+
             necesidad = (
                 self._evaluar_objetivo(
                     mensaje=mensaje,
                     objetivo=objetivo,
-                    dominio=clasificacion.dominio,
-                    categoria=clasificacion.categoria,
+                    dominio=(
+                        clasificacion.dominio
+                    ),
+                    categoria=(
+                        clasificacion.categoria
+                    ),
                 )
             )
 
-            if necesidad:
+            if necesidad is not None:
                 necesidades.append(
                     necesidad
                 )
 
         return necesidades
-
-    # =========================================================
-    # EVALUAR OBJETIVO
-    # =========================================================
 
     def _evaluar_objetivo(
         self,
@@ -140,24 +137,19 @@ class DetectorNecesidades:
 
         score = 0.0
 
-        motivos = []
-
         # =====================================================
-        # 1. INDICADOR EXPLÍCITO DE CAMBIO
+        # 1. INDICIO DE CAMBIO / DECISIÓN
         # =====================================================
 
         if any(
             indicador in texto
-            for indicador in self.INDICADORES_CAMBIO
+            for indicador
+            in self.INDICADORES_CAMBIO
         ):
             score += 0.25
 
-            motivos.append(
-                "indicio_de_cambio"
-            )
-
         # =====================================================
-        # 2. DOMINIO RELACIONADO CON EL PROYECTO
+        # 2. DOMINIO DEL PROYECTO
         # =====================================================
 
         dominios_proyecto = {
@@ -169,18 +161,11 @@ class DetectorNecesidades:
         }
 
         if dominio in dominios_proyecto:
-
             score += 0.25
 
-            motivos.append(
-                f"dominio:{dominio}"
-            )
-
         # =====================================================
-        # 3. SIMILITUD CON MEMORIA DEL PROYECTO
+        # 3. MEMORIA VECTORIAL
         # =====================================================
-
-        similitud_maxima = 0.0
 
         try:
 
@@ -194,7 +179,7 @@ class DetectorNecesidades:
 
             if similares:
 
-                similitud_maxima = max(
+                similitud = max(
                     float(
                         item.get(
                             "similitud_semantica",
@@ -204,16 +189,8 @@ class DetectorNecesidades:
                     for item in similares
                 )
 
-                # Convertimos similitud en aporte
-                # de máximo 0.30.
-
                 score += (
-                    similitud_maxima
-                    * 0.30
-                )
-
-                motivos.append(
-                    "memoria_semanticamente_relacionada"
+                    similitud * 0.30
                 )
 
         except Exception as error:
@@ -224,10 +201,8 @@ class DetectorNecesidades:
             )
 
         # =====================================================
-        # 4. CONCEPTOS DEL GRAFO
+        # 4. GRAFO
         # =====================================================
-
-        relaciones = []
 
         try:
 
@@ -242,12 +217,9 @@ class DetectorNecesidades:
             if relaciones:
 
                 score += min(
-                    len(relaciones) * 0.03,
+                    len(relaciones)
+                    * 0.03,
                     0.20,
-                )
-
-                motivos.append(
-                    "conceptos_del_grafo"
                 )
 
         except Exception as error:
@@ -258,13 +230,10 @@ class DetectorNecesidades:
             )
 
         # =====================================================
-        # 5. OBJETIVO DE DOCUMENTACIÓN
+        # 5. DOCUMENTACIÓN
         # =====================================================
 
         if "document" in objetivo_texto:
-
-            # Para documentar cambios de proyecto,
-            # exigimos una señal razonable.
 
             if score < 0.40:
                 return None
@@ -276,20 +245,26 @@ class DetectorNecesidades:
 
             return NecesidadDetectada(
                 descripcion=(
-                    "Documentar una actualización "
-                    "relevante del proyecto: "
+                    "Registrar una actualización "
+                    "relevante del proyecto Atenas: "
                     f"{mensaje}"
                 ),
                 objetivo_id=objetivo.id,
                 prioridad=max(
                     objetivo.prioridad,
-                    min(score + 0.30, 1.0),
+                    min(
+                        score + 0.30,
+                        1.0,
+                    ),
                 ),
                 confianza=confianza,
                 tipo="documentacion",
                 dominio=dominio,
                 categoria=categoria,
-                accion_sugerida="crear_nota"
+
+                # Importante:
+                # el detector NO decide la herramienta.
+                accion_sugerida=None,
             )
 
         return None

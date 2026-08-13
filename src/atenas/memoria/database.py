@@ -22,6 +22,38 @@ class Database:
             raise
         finally:
             conn.close()
+
+    def _asegurar_columna(
+        self,
+        conn,
+        tabla: str,
+        columna: str,
+        definicion: str,
+    ) -> None:
+        """
+        Añade una columna a una tabla existente si todavía
+        no está presente.
+
+        Permite migraciones pequeñas sin borrar la memoria
+        existente de ATENAS.
+        """
+
+        columnas = conn.execute(
+            f"PRAGMA table_info({tabla})"
+        ).fetchall()
+
+        nombres = {
+            fila["name"]
+            for fila in columnas
+        }
+
+        if columna not in nombres:
+            conn.execute(
+                f"""
+                ALTER TABLE {tabla}
+                ADD COLUMN {columna} {definicion}
+                """
+            )
         
 
     def _crear_tablas(self):
@@ -250,6 +282,20 @@ class Database:
                 )
             """)
 
+            self._asegurar_columna(
+                conn,
+                "agent_tasks",
+                "accion_sugerida",
+                "TEXT",
+            )
+
+            self._asegurar_columna(
+                conn,
+                "agent_tasks",
+                "mensaje_origen",
+                "TEXT",
+            )
+
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS agent_actions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -263,3 +309,41 @@ class Database:
                         REFERENCES agent_tasks(id)
                 )
             """)
+
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS investigaciones_web (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    consulta TEXT NOT NULL,
+                    sintesis TEXT NOT NULL,
+                    fuentes_json TEXT NOT NULL,
+                    confianza REAL DEFAULT 0.75,
+                    memoria_id INTEGER,
+                    creado_en DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_investigaciones_consulta
+                ON investigaciones_web(consulta)
+            """)
+
+            self._asegurar_columna(
+                conn,
+                "investigaciones_web",
+                "tipo_vigencia",
+                "TEXT DEFAULT 'media'",
+            )
+
+            self._asegurar_columna(
+                conn,
+                "investigaciones_web",
+                "revisar_despues_dias",
+                "INTEGER DEFAULT 30",
+            )
+
+            self._asegurar_columna(
+                conn,
+                "investigaciones_web",
+                "ultima_verificacion",
+                "DATETIME",
+            )

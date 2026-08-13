@@ -1,7 +1,7 @@
 from src.atenas.herramientas.notas.crear_nota import crear_nota
 from src.atenas.herramientas.sistema.abrir_programa import abrir_programa
 from src.atenas.herramientas.teclado.escribir_texto import escribir_texto
-
+from src.atenas.herramientas.internet.buscar_web import buscar_web
 
 class ToolExecutor:
 
@@ -11,6 +11,7 @@ class ToolExecutor:
             "crear_nota": crear_nota,
             "abrir_programa": abrir_programa,
             "escribir_texto": escribir_texto,
+            "buscar_web": buscar_web,
         }
 
     def ejecutar(

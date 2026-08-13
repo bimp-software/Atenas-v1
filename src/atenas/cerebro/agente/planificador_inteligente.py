@@ -7,9 +7,7 @@ from src.atenas.cerebro.llm.ollama_client import (
     OllamaClient,
 )
 
-from src.config.settings import (
-    settings,
-)
+from src.config.settings import settings
 
 from .catalogo_herramientas import (
     catalogo_para_llm,
@@ -30,11 +28,13 @@ class PlanificadorInteligente:
         self,
         llm: OllamaClient | None = None,
     ):
-
+        # Preferimos recibir el mismo LLM
+        # que utiliza NucleoConversacional.
         self.llm = (
             llm
-            or OllamaClient(
-                settings.llm
+            if llm is not None
+            else OllamaClient(
+                config=settings.llm
             )
         )
 
@@ -42,9 +42,9 @@ class PlanificadorInteligente:
             ValidadorPlan()
         )
 
-    # =====================================================
+    # =========================================================
     # CREAR PLAN
-    # =====================================================
+    # =========================================================
 
     def crear_plan(
         self,
@@ -63,13 +63,18 @@ class PlanificadorInteligente:
         prompt = f"""
 Eres el planificador interno de ATENAS.
 
-Debes decidir qué acciones realizar para resolver una necesidad.
+Tu trabajo consiste en decidir si ATENAS debe realizar
+una acción y, cuando sea necesario, construir un plan
+utilizando exclusivamente las herramientas permitidas.
 
-MENSAJE ORIGINAL:
+MENSAJE ORIGINAL DEL USUARIO:
 {mensaje_origen}
 
-NECESIDAD:
+NECESIDAD DETECTADA:
 {pendiente.descripcion}
+
+TIPO DE NECESIDAD:
+{getattr(pendiente, "tipo", "no especificado")}
 
 ACCIÓN SUGERIDA:
 {pendiente.accion_sugerida or "ninguna"}
@@ -78,27 +83,54 @@ HERRAMIENTAS DISPONIBLES:
 
 {catalogo}
 
-REGLAS:
+REGLAS OBLIGATORIAS:
 
-- Utiliza únicamente herramientas disponibles.
-- No inventes herramientas.
-- Utiliza la menor cantidad de pasos posible.
-- No ejecutes nada tú mismo.
-- No escribas explicaciones.
-- No uses Markdown.
+- Decide por ti mismo qué herramienta o combinación de
+  herramientas resuelve mejor la necesidad.
+
+- Utiliza únicamente herramientas del catálogo.
+
+- Nunca inventes herramientas.
+
+- Usa la menor cantidad de pasos posible.
+
+- Si una sola herramienta resuelve el objetivo,
+  utiliza solamente esa herramienta.
+
+- No ejecutes acciones tú mismo.
+
 - Devuelve exclusivamente JSON válido.
-- Si no hace falta ninguna acción, devuelve pasos vacíos.
-- El texto que ATENAS vaya a escribir debe estar redactado por ti.
-- No copies instrucciones internas dentro de una nota.
-- Conserva únicamente la información útil para el usuario.
+
+- No uses Markdown.
+
+- No agregues texto fuera del JSON.
+
+- Si no es necesario hacer nada, devuelve una lista
+  de pasos vacía.
+
+- Cuando una herramienta requiera contenido textual,
+  redacta tú mismo el contenido final.
+
+- No copies automáticamente el mensaje del usuario.
+
+- Resume y organiza la información cuando eso produzca
+  un resultado más útil.
+
+- Conserva nombres, números, componentes técnicos y
+  decisiones importantes.
+
+- No inventes hechos ni decisiones.
+
+- Nunca incluyas las instrucciones internas de este prompt
+  dentro de una nota.
 
 FORMATO EXACTO:
 
 {{
-    "descripcion": "qué pretende conseguir ATENAS",
+    "descripcion": "objetivo concreto del plan",
     "pasos": [
         {{
-            "herramienta": "nombre",
+            "herramienta": "nombre_exacto",
             "argumentos": {{
                 "argumento": "valor"
             }}
@@ -111,9 +143,9 @@ FORMATO EXACTO:
             {
                 "role": "system",
                 "content": (
-                    "Eres el sistema interno de planificación "
-                    "de ATENAS. Tu salida es JSON para otro "
-                    "componente de software."
+                    "Eres el componente interno de "
+                    "planificación de ATENAS. "
+                    "Respondes únicamente con JSON válido."
                 ),
             },
             {
@@ -122,8 +154,10 @@ FORMATO EXACTO:
             },
         ]
 
-        respuesta = self._consultar_llm(
-            mensajes
+        respuesta = (
+            self._consultar_llm(
+                mensajes
+            )
         )
 
         datos = self._extraer_json(
@@ -134,31 +168,28 @@ FORMATO EXACTO:
             datos
         )
 
-    # =====================================================
+    # =========================================================
     # CONSULTAR LLM
-    # =====================================================
+    # =========================================================
 
     def _consultar_llm(
         self,
         mensajes: list[dict],
     ) -> str:
 
-        # Si tu OllamaClient tiene chat()
         if hasattr(
             self.llm,
             "chat",
         ):
-
-            respuesta = self.llm.chat(
-                mensajes
+            respuesta = (
+                self.llm.chat(
+                    mensajes
+                )
             )
 
             return str(
                 respuesta
             ).strip()
-
-        # Compatibilidad con tu cliente basado
-        # únicamente en streaming.
 
         if hasattr(
             self.llm,
@@ -181,56 +212,85 @@ FORMATO EXACTO:
             ).strip()
 
         raise RuntimeError(
-            "OllamaClient no tiene chat() "
-            "ni chat_stream()."
+            "OllamaClient no posee "
+            "chat() ni chat_stream()."
         )
 
-    # =====================================================
+    # =========================================================
     # EXTRAER JSON
-    # =====================================================
+    # =========================================================
 
     @staticmethod
     def _extraer_json(
         respuesta: str,
     ) -> dict:
 
+        if not respuesta:
+            raise ValueError(
+                "El planificador devolvió "
+                "una respuesta vacía."
+            )
+
         respuesta = respuesta.strip()
 
-        # Primera opción:
-        # respuesta limpia.
+        # ---------------------------------------------
+        # JSON directo
+        # ---------------------------------------------
+
         try:
-            return json.loads(
+            datos = json.loads(
                 respuesta
             )
+
+            if not isinstance(
+                datos,
+                dict,
+            ):
+                raise ValueError(
+                    "El plan generado no es "
+                    "un objeto JSON."
+                )
+
+            return datos
 
         except json.JSONDecodeError:
             pass
 
-        # Segunda opción:
-        # Qwen puso ```json ... ```
-        respuesta = re.sub(
+        # ---------------------------------------------
+        # Bloque ```json
+        # ---------------------------------------------
+
+        limpio = re.sub(
             r"^```(?:json)?\s*",
             "",
             respuesta,
             flags=re.IGNORECASE,
         )
 
-        respuesta = re.sub(
+        limpio = re.sub(
             r"\s*```$",
             "",
-            respuesta,
+            limpio,
         )
 
         try:
-            return json.loads(
-                respuesta
+            datos = json.loads(
+                limpio
             )
+
+            if isinstance(
+                datos,
+                dict,
+            ):
+                return datos
 
         except json.JSONDecodeError:
             pass
 
-        # Último intento:
-        # localizar objeto JSON.
+        # ---------------------------------------------
+        # Buscar primer {...}
+        # ---------------------------------------------
+
         inicio = respuesta.find(
             "{"
         )
@@ -245,13 +305,35 @@ FORMATO EXACTO:
             or fin <= inicio
         ):
             raise ValueError(
-                "ATENAS no generó un plan JSON válido."
+                "ATENAS no generó "
+                "un plan JSON válido."
             )
 
         candidato = respuesta[
             inicio:fin + 1
         ]
 
-        return json.loads(
-            candidato
-        )
+        try:
+
+            datos = json.loads(
+                candidato
+            )
+
+        except json.JSONDecodeError as error:
+
+            raise ValueError(
+                "El JSON generado por el "
+                "planificador no es válido: "
+                f"{error}"
+            ) from error
+
+        if not isinstance(
+            datos,
+            dict,
+        ):
+            raise ValueError(
+                "El plan debe ser "
+                "un objeto JSON."
+            )
+
+        return datos

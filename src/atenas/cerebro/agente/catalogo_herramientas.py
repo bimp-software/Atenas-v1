@@ -34,6 +34,19 @@ CATALOGO_HERRAMIENTAS = {
         },
         "riesgo": "bajo",
     },
+
+    "buscar_web": {
+        "descripcion": (
+            "Busca información pública actual "
+            "en Internet y devuelve resultados "
+            "estructurados."
+        ),
+        "argumentos": {
+            "consulta": "str",
+            "limite": "int opcional",
+        },
+        "riesgo": "bajo",
+    },
 }
 
 

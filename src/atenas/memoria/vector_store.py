@@ -48,10 +48,9 @@ class VectorStore:
             or self.MODELO_DEFAULT
         )
 
-        print(
-            "[ATENAS][VECTOR] "
-            "Cargando modelo semántico..."
-        )
+        # =========================================================
+        # MODELO COMPARTIDO
+        # =========================================================
 
         if self.nombre_modelo in _MODELOS_CARGADOS:
 
@@ -83,12 +82,6 @@ class VectorStore:
                 "[ATENAS][VECTOR] "
                 "Modelo semántico disponible."
             )
-
-        print(
-            "[ATENAS][VECTOR] "
-            "Modelo semántico disponible."
-        )
-
     # =========================================================
     # EMBEDDING
     # =========================================================

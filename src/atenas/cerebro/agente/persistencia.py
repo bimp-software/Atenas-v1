@@ -4,8 +4,15 @@ import json
 
 from src.atenas.memoria.database import Database
 
-from .objetivos import Objetivo, EstadoObjetivo
-from .pendientes import Pendiente, EstadoPendiente
+from .objetivos import (
+    Objetivo,
+    EstadoObjetivo,
+)
+
+from .pendientes import (
+    Pendiente,
+    EstadoPendiente,
+)
 
 
 class PersistenciaAgente:
@@ -36,6 +43,7 @@ class PersistenciaAgente:
                     estado,
                     autonomia
                 )
+
                 VALUES (?, ?, ?, ?, ?, ?)
 
                 ON CONFLICT(id)
@@ -71,7 +79,9 @@ class PersistenciaAgente:
                 id=row["id"],
                 nombre=row["nombre"],
                 descripcion=row["descripcion"],
-                prioridad=row["prioridad"],
+                prioridad=float(
+                    row["prioridad"]
+                ),
                 estado=EstadoObjetivo(
                     row["estado"]
                 ),
@@ -101,9 +111,12 @@ class PersistenciaAgente:
                     prioridad,
                     estado,
                     requiere_confirmacion,
-                    resultado
+                    resultado,
+                    accion_sugerida,
+                    mensaje_origen
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 
                 ON CONFLICT(id)
                 DO UPDATE SET
@@ -111,17 +124,27 @@ class PersistenciaAgente:
                     objetivo_id = excluded.objetivo_id,
                     prioridad = excluded.prioridad,
                     estado = excluded.estado,
-                    requiere_confirmacion = excluded.requiere_confirmacion,
+                    requiere_confirmacion =
+                        excluded.requiere_confirmacion,
                     resultado = excluded.resultado,
-                    actualizado_en = CURRENT_TIMESTAMP
+                    accion_sugerida =
+                        excluded.accion_sugerida,
+                    mensaje_origen =
+                        excluded.mensaje_origen,
+                    actualizado_en =
+                        CURRENT_TIMESTAMP
             """, (
                 pendiente.id,
                 pendiente.descripcion,
                 pendiente.objetivo_id,
                 pendiente.prioridad,
                 pendiente.estado.value,
-                1 if pendiente.requiere_confirmacion else 0,
+                1
+                if pendiente.requiere_confirmacion
+                else 0,
                 pendiente.resultado,
+                pendiente.accion_sugerida,
+                pendiente.mensaje_origen,
             ))
 
     def cargar_pendientes(
@@ -133,28 +156,60 @@ class PersistenciaAgente:
             rows = conn.execute("""
                 SELECT *
                 FROM agent_tasks
+
                 WHERE estado IN (
                     'pendiente',
                     'en_proceso'
                 )
+
+                ORDER BY
+                    prioridad DESC,
+                    creado_en ASC
             """).fetchall()
 
-        return [
-            Pendiente(
-                id=row["id"],
-                descripcion=row["descripcion"],
-                objetivo_id=row["objetivo_id"],
-                prioridad=row["prioridad"],
-                estado=EstadoPendiente(
-                    row["estado"]
-                ),
-                requiere_confirmacion=bool(
-                    row["requiere_confirmacion"]
-                ),
-                resultado=row["resultado"],
+        pendientes = []
+
+        for row in rows:
+
+            # Si ATENAS se cerró mientras ejecutaba algo,
+            # al iniciar lo devolvemos a PENDIENTE.
+            estado = EstadoPendiente(
+                row["estado"]
             )
-            for row in rows
-        ]
+
+            if (
+                estado
+                == EstadoPendiente.EN_PROCESO
+            ):
+                estado = (
+                    EstadoPendiente.PENDIENTE
+                )
+
+            pendientes.append(
+                Pendiente(
+                    id=row["id"],
+                    descripcion=row["descripcion"],
+                    objetivo_id=row["objetivo_id"],
+                    prioridad=float(
+                        row["prioridad"]
+                    ),
+                    estado=estado,
+                    requiere_confirmacion=bool(
+                        row[
+                            "requiere_confirmacion"
+                        ]
+                    ),
+                    resultado=row["resultado"],
+                    accion_sugerida=(
+                        row["accion_sugerida"]
+                    ),
+                    mensaje_origen=(
+                        row["mensaje_origen"]
+                    ),
+                )
+            )
+
+        return pendientes
 
     # =========================================================
     # HISTORIAL DE ACCIONES
@@ -178,6 +233,7 @@ class PersistenciaAgente:
                     exito,
                     resultado
                 )
+
                 VALUES (?, ?, ?, ?, ?)
             """, (
                 pendiente_id,
@@ -193,5 +249,6 @@ class PersistenciaAgente:
                 json.dumps(
                     resultado,
                     ensure_ascii=False,
+                    default=str,
                 ),
             ))
