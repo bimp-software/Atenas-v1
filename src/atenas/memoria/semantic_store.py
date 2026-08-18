@@ -50,6 +50,90 @@ class SemanticStore:
             rows = conn.execute("""SELECT * FROM memoria_semantica WHERE LOWER(dominio) = LOWER(?) AND activa = 1 ORDER BY importancia DESC, veces_usado DESC LIMIT ? """, (dominio,limite,)).fetchall()
         return [dict(row) for row in rows]
 
-    def reforzar(self,memoria_id: int,) -> None:
+    def reforzar(self,memoria_id: int,importancia: float | None = None,confianza: float | None = None,relevancia: float | None = None,) -> dict | None:
         with self.db.conexion() as conn:
-            conn.execute(""" UPDATE memoria_semantica SET veces_usado = veces_usado + 1, actualizado_en = CURRENT_TIMESTAMP, relevancia = MIN( relevancia + 0.02, 1.0 ) WHERE id = ?""", ( memoria_id,))
+
+            memoria = conn.execute("""SELECT * FROM memoria_semantica WHERE id = ? AND activa = 1 LIMIT 1""", (memoria_id,)).fetchone()
+            if memoria is None: return None
+            memoria = dict(memoria)
+
+            importancia_actual = float(memoria.get("importancia",0.5,) or 0.5)
+
+            confianza_actual = float(
+                memoria.get(
+                    "confianza",
+                    0.5,
+                )
+                or 0.5
+            )
+
+            relevancia_actual = float(
+                memoria.get(
+                    "relevancia",
+                    0.5,
+                )
+                or 0.5
+            )
+
+            nueva_importancia = max(
+                importancia_actual,
+                importancia
+                if importancia is not None
+                else importancia_actual,
+            )
+
+            nueva_confianza = min(
+                1.0,
+                max(
+                    confianza_actual,
+                    confianza
+                    if confianza is not None
+                    else confianza_actual,
+                )
+                + 0.03,
+            )
+
+            nueva_relevancia = min(
+                1.0,
+                max(
+                    relevancia_actual,
+                    relevancia
+                    if relevancia is not None
+                    else relevancia_actual,
+                )
+                + 0.02,
+            )
+
+            conn.execute("""
+                UPDATE memoria_semantica
+
+                SET
+                    importancia = ?,
+                    confianza = ?,
+                    relevancia = ?,
+                    veces_usado =
+                        COALESCE(veces_usado, 0) + 1,
+                    actualizado_en =
+                        CURRENT_TIMESTAMP
+
+                WHERE id = ?
+            """, (
+                nueva_importancia,
+                nueva_confianza,
+                nueva_relevancia,
+                memoria_id,
+            ))
+
+            actualizada = conn.execute("""
+                SELECT *
+                FROM memoria_semantica
+                WHERE id = ?
+            """, (
+                memoria_id,
+            )).fetchone()
+
+        return (
+            dict(actualizada)
+            if actualizada
+            else None
+        )

@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 from .filtro_memoria import FiltroMemoria
+from .deduplicador import DeduplicadorMemoria
 
 
 @dataclass
@@ -28,11 +30,21 @@ class HipocampoDigital:
         clasificador,
         consolidador,
         recuperador,
+        storage,
     ):
         self.filtro = FiltroMemoria()
+
         self.clasificador = clasificador
         self.consolidador = consolidador
         self.recuperador = recuperador
+
+        self.storage = storage
+
+        self.deduplicador = (
+            DeduplicadorMemoria(
+                storage=self.storage
+            )
+        )
 
     # =========================================================
     # PROCESAR EXPERIENCIA
@@ -43,52 +55,195 @@ class HipocampoDigital:
         experiencia: Experiencia,
     ) -> dict:
 
-        contenido = experiencia.contenido.strip()
+        # =====================================================
+        # 0. NORMALIZAR
+        # =====================================================
+
+        contenido = (
+            experiencia.contenido
+            or ""
+        ).strip()
 
         if not contenido:
+
             return {
                 "guardada": False,
+                "duplicada": False,
                 "motivo": "contenido_vacio",
             }
+
+        experiencia.contenido = contenido
 
         # =====================================================
         # 1. FILTRAR
         # =====================================================
 
-        evaluacion = self.filtro.evaluar(
-            texto=contenido,
-            fuente=experiencia.fuente,
+        evaluacion = (
+            self.filtro.evaluar(
+                texto=contenido,
+                fuente=experiencia.fuente,
+            )
         )
 
         if not evaluacion.guardar:
 
             return {
                 "guardada": False,
-                "motivo": evaluacion.motivo,
-                "tipo": evaluacion.tipo,
-                "score_filtro": evaluacion.score,
+                "duplicada": False,
+
+                "motivo": (
+                    evaluacion.motivo
+                ),
+
+                "tipo": (
+                    evaluacion.tipo
+                ),
+
+                "score_filtro": (
+                    evaluacion.score
+                ),
             }
 
         # =====================================================
-        # 2. CLASIFICAR
+        # 2. BUSCAR DUPLICADO SEMÁNTICO
+        # =====================================================
+
+        try:
+
+            duplicacion = (
+                self.deduplicador
+                .buscar_equivalente(
+                    contenido
+                )
+            )
+
+        except Exception as error:
+
+            print(
+                "[ATENAS][HIPOCAMPO][DEDUPLICACION] "
+                f"No fue posible evaluar duplicados: {error}"
+            )
+
+            duplicacion = None
+
+        # =====================================================
+        # 3. SI YA EXISTE, REFORZAR
+        # =====================================================
+
+        if (
+            duplicacion is not None
+            and duplicacion.duplicada
+            and duplicacion.memoria_id is not None
+        ):
+
+            try:
+
+                memoria_reforzada = (
+                    self.storage.semantica
+                    .reforzar(
+                        memoria_id=(
+                            duplicacion.memoria_id
+                        ),
+
+                        importancia=(
+                            experiencia.importancia
+                        ),
+
+                        confianza=(
+                            experiencia.confianza
+                        ),
+                    )
+                )
+
+            except Exception as error:
+
+                print(
+                    "[ATENAS][HIPOCAMPO][REFUERZO] "
+                    f"No fue posible reforzar la memoria: {error}"
+                )
+
+                memoria_reforzada = None
+
+            return {
+                "guardada": False,
+                "duplicada": True,
+
+                "accion": "reforzada",
+
+                "memoria_id": (
+                    duplicacion.memoria_id
+                ),
+
+                "similitud": (
+                    duplicacion.similitud
+                ),
+
+                "score_final": (
+                    getattr(
+                        duplicacion,
+                        "score_final",
+                        duplicacion.similitud,
+                    )
+                ),
+
+                "coincidencia_palabras": (
+                    getattr(
+                        duplicacion,
+                        "coincidencia_palabras",
+                        0.0,
+                    )
+                ),
+
+                "memoria": (
+                    memoria_reforzada
+                ),
+
+                "filtro_tipo": (
+                    evaluacion.tipo
+                ),
+
+                "filtro_score": (
+                    evaluacion.score
+                ),
+
+                "filtro_motivo": (
+                    evaluacion.motivo
+                ),
+            }
+
+        # =====================================================
+        # 4. CLASIFICAR
         # =====================================================
 
         clasificacion = (
-            self.clasificador.clasificar(
+            self.clasificador
+            .clasificar(
                 contenido
             )
         )
 
         experiencia.tipo = (
-            clasificacion.tipo
+            getattr(
+                clasificacion,
+                "tipo",
+                None,
+            )
         )
 
         experiencia.dominio = (
-            clasificacion.dominio
+            getattr(
+                clasificacion,
+                "dominio",
+                None,
+            )
         )
 
-        # Compatibilidad por si tu clasificador usa
-        # "categoria" en vez de "subcategoria".
+        # Soporta tanto:
+        # clasificacion.subcategoria
+        #
+        # como:
+        # clasificacion.categoria
+
         experiencia.subcategoria = (
             getattr(
                 clasificacion,
@@ -103,32 +258,43 @@ class HipocampoDigital:
         )
 
         # =====================================================
-        # 3. AJUSTAR IMPORTANCIA SEGÚN FILTRO
+        # 5. AJUSTAR IMPORTANCIA
         # =====================================================
 
         experiencia.importancia = max(
-            experiencia.importancia,
-            evaluacion.score,
+            float(
+                experiencia.importancia
+                or 0.5
+            ),
+            float(
+                evaluacion.score
+                or 0.0
+            ),
         )
 
         # =====================================================
-        # 4. CONSOLIDAR
+        # 6. CONSOLIDAR MEMORIA NUEVA
         # =====================================================
 
         resultado = (
-            self.consolidador.consolidar(
+            self.consolidador
+            .consolidar(
                 experiencia
             )
         )
 
         # =====================================================
-        # 5. AÑADIR INFORMACIÓN DEL FILTRO
+        # 7. ENRIQUECER RESULTADO
         # =====================================================
 
         if isinstance(
             resultado,
             dict,
         ):
+
+            resultado[
+                "duplicada"
+            ] = False
 
             resultado[
                 "filtro_tipo"
@@ -142,6 +308,32 @@ class HipocampoDigital:
                 "filtro_motivo"
             ] = evaluacion.motivo
 
+            # Si encontramos una memoria parecida
+            # pero no suficiente para considerarla duplicada,
+            # dejamos esa información para depuración.
+
+            if duplicacion is not None:
+
+                resultado[
+                    "mejor_similitud_previa"
+                ] = duplicacion.similitud
+
+                resultado[
+                    "score_deduplicacion"
+                ] = getattr(
+                    duplicacion,
+                    "score_final",
+                    duplicacion.similitud,
+                )
+
+                resultado[
+                    "coincidencia_palabras"
+                ] = getattr(
+                    duplicacion,
+                    "coincidencia_palabras",
+                    0.0,
+                )
+
         return resultado
 
     # =========================================================
@@ -153,11 +345,17 @@ class HipocampoDigital:
         consulta: str,
     ):
 
-        consulta = consulta.strip()
+        consulta = (
+            consulta
+            or ""
+        ).strip()
 
         if not consulta:
             return []
 
-        return self.recuperador.buscar(
-            consulta
+        return (
+            self.recuperador
+            .buscar(
+                consulta
+            )
         )
