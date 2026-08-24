@@ -246,6 +246,19 @@ from .gestor_seguro_dependencias import (
     GestorSeguroDependencias,
 )
 
+from .coordinador_dependencias_tarea import (
+    EstadoDependenciasTarea,
+    DependenciaPendiente,
+    ResultadoPreparacionTarea,
+    CoordinadorDependenciasTarea,
+    estado_para_ejecutor,
+)
+
+from .gestor_rollback_entorno import (
+    ResultadoRollbackEntorno,
+    GestorRollbackEntorno,
+)
+
 __all__ = [
     "NivelRiesgo",
     "ResultadoPolitica",
@@ -409,4 +422,13 @@ __all__ = [
     "EvaluacionDependencia",
     "ResultadoInstalacionDependencia",
     "GestorSeguroDependencias",
+
+    "EstadoDependenciasTarea",
+    "DependenciaPendiente",
+    "ResultadoPreparacionTarea",
+    "CoordinadorDependenciasTarea",
+    "estado_para_ejecutor",
+
+    "ResultadoRollbackEntorno",
+    "GestorRollbackEntorno",
 ]
