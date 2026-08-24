@@ -25,6 +25,14 @@ from .controlador_teclado import (
     ControladorTeclado,
 )
 
+from .capturador_pantalla import (
+    CapturadorPantalla,
+)
+
+from .percepcion_visual import (
+    PercepcionVisual,
+)
+
 
 class TipoAccionSistema(str, Enum):
     LEER_TEXTO = "leer_texto"
@@ -57,6 +65,11 @@ class TipoAccionSistema(str, Enum):
     COMBINACION_TECLAS = "combinacion_teclas"
     ESCRIBIR_EN_VENTANA = "escribir_en_ventana"
     COMBINACION_TECLAS_VENTANA = "combinacion_teclas_ventana"
+
+    CAPTURAR_PANTALLA = "capturar_pantalla"
+    CAPTURAR_VENTANA = "capturar_ventana"
+    LISTAR_CAPTURAS = "listar_capturas"
+    CONSTRUIR_ESTADO_VISUAL = "construir_estado_visual"
 
 
 @dataclass
@@ -108,6 +121,14 @@ class EjecutorSistema:
         ) = None,
         controlador_teclado: (
             ControladorTeclado
+            | None
+        ) = None,
+        capturador_pantalla: (
+            CapturadorPantalla
+            | None
+        ) = None,
+        percepcion_visual: (
+            PercepcionVisual
             | None
         ) = None,
     ):
@@ -163,6 +184,30 @@ class EjecutorSistema:
                 gestor_ventanas=(
                     self.gestor_ventanas
                 )
+            )
+        )
+
+        self.capturador_pantalla = (
+            capturador_pantalla
+            or CapturadorPantalla(
+                gestor_ventanas=(
+                    self.gestor_ventanas
+                )
+            )
+        )
+
+        self.percepcion_visual = (
+            percepcion_visual
+            or PercepcionVisual(
+                capturador=(
+                    self.capturador_pantalla
+                ),
+                gestor_ventanas=(
+                    self.gestor_ventanas
+                ),
+                controlador_mouse=(
+                    self.controlador_mouse
+                ),
             )
         )
 
@@ -1427,6 +1472,226 @@ class EjecutorSistema:
             error=resultado.error,
         )
 
+
+    # =========================================================
+    # CAPTURA / PERCEPCIÓN VISUAL BASE
+    # =========================================================
+
+    def capturar_pantalla(
+        self,
+        todos_monitores: bool = True,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.capturador_pantalla
+            .capturar_pantalla(
+                todos_monitores=(
+                    todos_monitores
+                )
+            )
+        )
+
+        datos = {}
+
+        if resultado.captura is not None:
+
+            captura = (
+                resultado.captura
+            )
+
+            datos["captura"] = {
+                "id":
+                    captura.id,
+
+                "ruta":
+                    captura.ruta,
+
+                "ancho":
+                    captura.ancho,
+
+                "alto":
+                    captura.alto,
+
+                "creada_en":
+                    captura.creada_en,
+
+                "tipo":
+                    captura.tipo,
+
+                "ventana_titulo":
+                    captura.ventana_titulo,
+
+                "ventana_hwnd":
+                    captura.ventana_hwnd,
+
+                "metadata":
+                    captura.metadata,
+            }
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=datos,
+            error=resultado.error,
+        )
+
+    def capturar_ventana(
+        self,
+        titulo: str,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.capturador_pantalla
+            .capturar_ventana(
+                titulo=titulo
+            )
+        )
+
+        datos = {}
+
+        if resultado.captura is not None:
+
+            captura = (
+                resultado.captura
+            )
+
+            datos["captura"] = {
+                "id":
+                    captura.id,
+
+                "ruta":
+                    captura.ruta,
+
+                "ancho":
+                    captura.ancho,
+
+                "alto":
+                    captura.alto,
+
+                "creada_en":
+                    captura.creada_en,
+
+                "tipo":
+                    captura.tipo,
+
+                "ventana_titulo":
+                    captura.ventana_titulo,
+
+                "ventana_hwnd":
+                    captura.ventana_hwnd,
+
+                "metadata":
+                    captura.metadata,
+            }
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=datos,
+            error=resultado.error,
+        )
+
+    def listar_capturas(
+        self,
+        limite: int = 30,
+    ) -> ResultadoAccionSistema:
+
+        capturas = (
+            self.capturador_pantalla
+            .listar_capturas(
+                limite=limite
+            )
+        )
+
+        return ResultadoAccionSistema(
+            ok=True,
+            accion="listar_capturas",
+            mensaje=(
+                f"{len(capturas)} captura(s)."
+            ),
+            datos={
+                "capturas":
+                    capturas
+            },
+        )
+
+
+    def construir_estado_visual(
+        self,
+        capturar: bool = True,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.percepcion_visual
+            .construir_estado(
+                capturar=capturar
+            )
+        )
+
+        if (
+            not resultado.ok
+            or resultado.estado
+            is None
+        ):
+
+            return ResultadoAccionSistema(
+                ok=False,
+                accion="construir_estado_visual",
+                error=(
+                    resultado.error
+                    or "estado_visual_no_disponible"
+                ),
+                mensaje=resultado.mensaje,
+            )
+
+        estado = resultado.estado
+
+        return ResultadoAccionSistema(
+            ok=True,
+            accion="construir_estado_visual",
+            mensaje=(
+                self.percepcion_visual
+                .resumen_para_agente(
+                    estado
+                )
+            ),
+            datos={
+                "estado_visual": {
+                    "creada_en":
+                        estado.creada_en,
+
+                    "captura_ok":
+                        estado.captura_ok,
+
+                    "captura_ruta":
+                        estado.captura_ruta,
+
+                    "pantalla_ancho":
+                        estado.pantalla_ancho,
+
+                    "pantalla_alto":
+                        estado.pantalla_alto,
+
+                    "ventana_activa":
+                        estado.ventana_activa,
+
+                    "ventanas_visibles":
+                        estado.ventanas_visibles,
+
+                    "mouse":
+                        estado.mouse,
+
+                    "contexto_aplicacion":
+                        estado.contexto_aplicacion,
+
+                    "metadata":
+                        estado.metadata,
+                }
+            },
+        )
+
     # =========================================================
     # DESPACHO
     # =========================================================
@@ -1762,6 +2027,49 @@ class EjecutorSistema:
                 ],
             )
 
+
+        if tipo == TipoAccionSistema.CAPTURAR_PANTALLA:
+
+            return self.capturar_pantalla(
+                todos_monitores=bool(
+                    args.get(
+                        "todos_monitores",
+                        True,
+                    )
+                )
+            )
+
+        if tipo == TipoAccionSistema.CAPTURAR_VENTANA:
+
+            return self.capturar_ventana(
+                titulo=str(
+                    args["titulo"]
+                )
+            )
+
+        if tipo == TipoAccionSistema.LISTAR_CAPTURAS:
+
+            return self.listar_capturas(
+                limite=int(
+                    args.get(
+                        "limite",
+                        30,
+                    )
+                )
+            )
+
+
+        if tipo == TipoAccionSistema.CONSTRUIR_ESTADO_VISUAL:
+
+            return self.construir_estado_visual(
+                capturar=bool(
+                    args.get(
+                        "capturar",
+                        True,
+                    )
+                )
+            )
+
         return ResultadoAccionSistema(
             ok=False,
             accion=str(
@@ -1800,4 +2108,7 @@ class EjecutorSistema:
 
             "controlador_teclado":
                 self.controlador_teclado.disponible,
+
+            "capturador_pantalla":
+                self.capturador_pantalla.disponible,
         }

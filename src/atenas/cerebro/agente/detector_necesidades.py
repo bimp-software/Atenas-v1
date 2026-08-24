@@ -217,6 +217,47 @@ class DetectorNecesidades:
         t = mensaje.lower()
 
         patrones = (
+            (
+                "construir_estado_visual",
+                (
+                    "qué estás viendo",
+                    "que estas viendo",
+                    "qué ves",
+                    "que ves",
+                    "observa la pantalla",
+                    "estado visual",
+                    "analiza lo que hay en pantalla",
+                ),
+            ),
+
+            (
+                "capturar_pantalla",
+                (
+                    "captura la pantalla",
+                    "capturar pantalla",
+                    "toma una captura",
+                    "haz una captura de pantalla",
+                    "screenshot de la pantalla",
+                ),
+            ),
+            (
+                "capturar_ventana",
+                (
+                    "captura la ventana",
+                    "capturar la ventana",
+                    "captura de la ventana",
+                ),
+            ),
+            (
+                "listar_capturas",
+                (
+                    "lista las capturas",
+                    "listar capturas",
+                    "muestra las capturas",
+                    "últimas capturas",
+                    "ultimas capturas",
+                ),
+            ),
 
             (
                 "pulsar_tecla",

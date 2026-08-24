@@ -230,6 +230,101 @@ class CapacidadSistema:
 
 
 
+
+
+        if any(
+            frase in t
+            for frase in (
+                "qué estás viendo",
+                "que estas viendo",
+                "qué ves",
+                "que ves",
+                "observa la pantalla",
+                "observa el escritorio",
+                "estado visual",
+                "analiza lo que hay en pantalla",
+            )
+        ):
+
+            return AccionSistema(
+                tipo=(
+                    TipoAccionSistema
+                    .CONSTRUIR_ESTADO_VISUAL
+                ),
+                argumentos={
+                    "capturar":
+                        True
+                },
+            )
+
+        # -----------------------------------------------------
+        # CAPTURA / PANTALLA
+        # -----------------------------------------------------
+
+        if any(
+            frase in t
+            for frase in (
+                "captura la pantalla",
+                "capturar pantalla",
+                "toma una captura",
+                "haz una captura de pantalla",
+                "screenshot de la pantalla",
+            )
+        ):
+
+            return AccionSistema(
+                tipo=(
+                    TipoAccionSistema
+                    .CAPTURAR_PANTALLA
+                ),
+                argumentos={
+                    "todos_monitores":
+                        True
+                },
+            )
+
+        if any(
+            frase in t
+            for frase in (
+                "lista las capturas",
+                "listar capturas",
+                "muestra las capturas",
+                "últimas capturas",
+                "ultimas capturas",
+            )
+        ):
+
+            return AccionSistema(
+                tipo=(
+                    TipoAccionSistema
+                    .LISTAR_CAPTURAS
+                )
+            )
+
+        if (
+            "captura" in t
+            and "ventana" in t
+        ):
+
+            titulo = (
+                self._extraer_titulo_ventana(
+                    original
+                )
+            )
+
+            if titulo:
+
+                return AccionSistema(
+                    tipo=(
+                        TipoAccionSistema
+                        .CAPTURAR_VENTANA
+                    ),
+                    argumentos={
+                        "titulo":
+                            titulo
+                    },
+                )
+
         # -----------------------------------------------------
         # TECLADO
         # -----------------------------------------------------

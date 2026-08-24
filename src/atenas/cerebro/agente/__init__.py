@@ -32,6 +32,18 @@ from .controlador_teclado import (
     ControladorTeclado,
 )
 
+from .capturador_pantalla import (
+    CapturaPantalla,
+    ResultadoCapturaPantalla,
+    CapturadorPantalla,
+)
+
+from .percepcion_visual import (
+    EstadoVisual,
+    ResultadoPercepcionVisual,
+    PercepcionVisual,
+)
+
 from .ejecutor_sistema import (
     TipoAccionSistema,
     AccionSistema,
@@ -152,6 +164,14 @@ __all__ = [
     "TeclaEspecial",
     "ResultadoTeclado",
     "ControladorTeclado",
+
+    "CapturaPantalla",
+    "ResultadoCapturaPantalla",
+    "CapturadorPantalla",
+
+    "EstadoVisual",
+    "ResultadoPercepcionVisual",
+    "PercepcionVisual",
 
     "TipoAccionSistema",
     "AccionSistema",

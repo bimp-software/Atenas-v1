@@ -210,6 +210,39 @@ class GestorPresupuestoAutonomia:
                 "Restaurar ventana.",
             ),
 
+
+        "capturar_pantalla":
+            PoliticaAutonomia(
+                "capturar_pantalla",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Capturar pantalla para percepción visual local.",
+            ),
+
+        "capturar_ventana":
+            PoliticaAutonomia(
+                "capturar_ventana",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Capturar una ventana conocida para percepción local.",
+            ),
+
+        "listar_capturas":
+            PoliticaAutonomia(
+                "listar_capturas",
+                NivelAutonomia.LIBRE,
+                0,
+                "Consultar capturas visuales ya registradas.",
+            ),
+
+        "construir_estado_visual":
+            PoliticaAutonomia(
+                "construir_estado_visual",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Construir una escena visual local del escritorio.",
+            ),
+
         # Confirmación
         "instalar_dependencia":
             PoliticaAutonomia(
