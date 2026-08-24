@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 
 class NivelAutonomia(str, Enum):
@@ -37,179 +36,254 @@ class EvaluacionAutonomia:
 
 class GestorPresupuestoAutonomia:
     """
-    Controla cuánto puede hacer ATENAS por iniciativa propia.
-
-    El objetivo NO es quitar autonomía, sino separar:
-
-    - acciones internas y reversibles;
-    - acciones con impacto moderado;
-    - acciones que requieren confirmación;
-    - acciones bloqueadas.
-
-    El presupuesto funciona por ciclo autónomo. Cada acción autónoma
-    consume unidades. Cuando se agota, ATENAS debe detener el ciclo y
-    esperar una nueva oportunidad de ejecución.
-
-    Esto será reutilizable más adelante para:
-    - mouse/teclado;
-    - aplicaciones;
-    - terminal;
-    - archivos externos;
-    - instalaciones;
-    - red;
-    - dispositivos físicos.
+    Política común para Agente, Desarrollo, Sistema y GUI.
     """
 
-    POLITICAS: dict[str, PoliticaAutonomia] = {
-        # =====================================================
-        # INTERNAS / BAJO IMPACTO
-        # =====================================================
-        "pensar": PoliticaAutonomia(
-            accion="pensar",
-            nivel=NivelAutonomia.LIBRE,
-            costo=0,
-            descripcion="Evaluar estado y decidir.",
-        ),
-        "consultar_estado": PoliticaAutonomia(
-            accion="consultar_estado",
-            nivel=NivelAutonomia.LIBRE,
-            costo=0,
-            descripcion="Leer estado interno.",
-        ),
-        "listar_proyectos": PoliticaAutonomia(
-            accion="listar_proyectos",
-            nivel=NivelAutonomia.LIBRE,
-            costo=0,
-            descripcion="Consultar proyectos registrados.",
-        ),
-        "continuar_proyecto": PoliticaAutonomia(
-            accion="continuar_proyecto",
-            nivel=NivelAutonomia.CONTROLADA,
-            costo=2,
-            descripcion=(
-                "Continuar una unidad de trabajo dentro de un "
-                "proyecto ya existente."
+    POLITICAS = {
+        # Lecturas
+        "pensar":
+            PoliticaAutonomia(
+                "pensar",
+                NivelAutonomia.LIBRE,
+                0,
+                "Evaluar estado.",
             ),
-        ),
-        "crear_proyecto": PoliticaAutonomia(
-            accion="crear_proyecto",
-            nivel=NivelAutonomia.CONTROLADA,
-            costo=3,
-            descripcion=(
-                "Crear estructura, planificación y archivos de un "
-                "nuevo proyecto solicitado explícitamente."
-            ),
-        ),
-        "crear_nota": PoliticaAutonomia(
-            accion="crear_nota",
-            nivel=NivelAutonomia.CONTROLADA,
-            costo=1,
-            descripcion="Crear una nota interna.",
-        ),
-        "buscar_memoria": PoliticaAutonomia(
-            accion="buscar_memoria",
-            nivel=NivelAutonomia.LIBRE,
-            costo=0,
-            descripcion="Consultar memoria interna.",
-        ),
-        "investigar": PoliticaAutonomia(
-            accion="investigar",
-            nivel=NivelAutonomia.CONTROLADA,
-            costo=1,
-            descripcion="Realizar una investigación permitida.",
-        ),
 
-        # =====================================================
-        # IMPACTO EXTERNO / CONFIRMACIÓN
-        # =====================================================
-        "instalar_dependencia": PoliticaAutonomia(
-            accion="instalar_dependencia",
-            nivel=NivelAutonomia.CONFIRMACION,
-            costo=3,
-            descripcion=(
-                "Instalar código de terceros puede modificar el entorno "
-                "y ejecutar scripts de instalación."
+        "consultar_estado":
+            PoliticaAutonomia(
+                "consultar_estado",
+                NivelAutonomia.LIBRE,
+                0,
+                "Consultar estado.",
             ),
-        ),
-        "eliminar_archivo": PoliticaAutonomia(
-            accion="eliminar_archivo",
-            nivel=NivelAutonomia.CONFIRMACION,
-            costo=3,
-            descripcion="Eliminar archivos requiere confirmación.",
-        ),
-        "mover_archivo_externo": PoliticaAutonomia(
-            accion="mover_archivo_externo",
-            nivel=NivelAutonomia.CONFIRMACION,
-            costo=2,
-            descripcion=(
-                "Mover archivos fuera del espacio gestionado requiere "
-                "confirmación."
-            ),
-        ),
-        "control_mouse": PoliticaAutonomia(
-            accion="control_mouse",
-            nivel=NivelAutonomia.CONFIRMACION,
-            costo=2,
-            descripcion=(
-                "El control de interfaz gráfica externa requiere una "
-                "política específica."
-            ),
-        ),
-        "escribir_aplicacion": PoliticaAutonomia(
-            accion="escribir_aplicacion",
-            nivel=NivelAutonomia.CONFIRMACION,
-            costo=2,
-            descripcion=(
-                "Escribir en aplicaciones externas puede producir "
-                "efectos reales."
-            ),
-        ),
-        "enviar_mensaje": PoliticaAutonomia(
-            accion="enviar_mensaje",
-            nivel=NivelAutonomia.CONFIRMACION,
-            costo=4,
-            descripcion="Enviar contenido externo requiere confirmación.",
-        ),
 
-        # =====================================================
-        # BLOQUEADAS POR DEFECTO
-        # =====================================================
-        "comando_arbitrario": PoliticaAutonomia(
-            accion="comando_arbitrario",
-            nivel=NivelAutonomia.BLOQUEADA,
-            costo=99,
-            descripcion=(
-                "El LLM no puede convertir texto libre directamente "
-                "en comandos arbitrarios del sistema."
+        "listar_proyectos":
+            PoliticaAutonomia(
+                "listar_proyectos",
+                NivelAutonomia.LIBRE,
+                0,
+                "Listar proyectos.",
             ),
-        ),
-        "modificar_politica_seguridad": PoliticaAutonomia(
-            accion="modificar_politica_seguridad",
-            nivel=NivelAutonomia.BLOQUEADA,
-            costo=99,
-            descripcion=(
-                "ATENAS no puede modificar autónomamente sus propias "
-                "políticas de seguridad."
+
+        "buscar_memoria":
+            PoliticaAutonomia(
+                "buscar_memoria",
+                NivelAutonomia.LIBRE,
+                0,
+                "Consultar memoria.",
             ),
-        ),
+
+        "leer_texto":
+            PoliticaAutonomia(
+                "leer_texto",
+                NivelAutonomia.LIBRE,
+                0,
+                "Leer texto.",
+            ),
+
+        "listar_directorio":
+            PoliticaAutonomia(
+                "listar_directorio",
+                NivelAutonomia.LIBRE,
+                0,
+                "Listar carpeta.",
+            ),
+
+        "listar_procesos":
+            PoliticaAutonomia(
+                "listar_procesos",
+                NivelAutonomia.LIBRE,
+                0,
+                "Listar procesos.",
+            ),
+
+        "listar_ventanas":
+            PoliticaAutonomia(
+                "listar_ventanas",
+                NivelAutonomia.LIBRE,
+                0,
+                "Observar ventanas.",
+            ),
+
+        "ventana_activa":
+            PoliticaAutonomia(
+                "ventana_activa",
+                NivelAutonomia.LIBRE,
+                0,
+                "Consultar ventana activa.",
+            ),
+
+        # Controladas
+        "continuar_proyecto":
+            PoliticaAutonomia(
+                "continuar_proyecto",
+                NivelAutonomia.CONTROLADA,
+                2,
+                "Continuar proyecto.",
+            ),
+
+        "crear_proyecto":
+            PoliticaAutonomia(
+                "crear_proyecto",
+                NivelAutonomia.CONTROLADA,
+                3,
+                "Crear proyecto solicitado.",
+            ),
+
+        "crear_nota":
+            PoliticaAutonomia(
+                "crear_nota",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Crear nota.",
+            ),
+
+        "investigar":
+            PoliticaAutonomia(
+                "investigar",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Investigar.",
+            ),
+
+        "crear_carpeta":
+            PoliticaAutonomia(
+                "crear_carpeta",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Crear carpeta autorizada.",
+            ),
+
+        "escribir_texto":
+            PoliticaAutonomia(
+                "escribir_texto",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Crear archivo de texto.",
+            ),
+
+        "abrir_ruta":
+            PoliticaAutonomia(
+                "abrir_ruta",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Abrir ruta.",
+            ),
+
+        "abrir_aplicacion":
+            PoliticaAutonomia(
+                "abrir_aplicacion",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Abrir aplicación registrada.",
+            ),
+
+        "activar_ventana":
+            PoliticaAutonomia(
+                "activar_ventana",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Traer una ventana al frente.",
+            ),
+
+        "minimizar_ventana":
+            PoliticaAutonomia(
+                "minimizar_ventana",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Minimizar ventana.",
+            ),
+
+        "maximizar_ventana":
+            PoliticaAutonomia(
+                "maximizar_ventana",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Maximizar ventana.",
+            ),
+
+        "restaurar_ventana":
+            PoliticaAutonomia(
+                "restaurar_ventana",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Restaurar ventana.",
+            ),
+
+        # Confirmación
+        "instalar_dependencia":
+            PoliticaAutonomia(
+                "instalar_dependencia",
+                NivelAutonomia.CONFIRMACION,
+                3,
+                "Instalar terceros requiere confirmación.",
+            ),
+
+        "eliminar_archivo":
+            PoliticaAutonomia(
+                "eliminar_archivo",
+                NivelAutonomia.CONFIRMACION,
+                3,
+                "Eliminar requiere confirmación.",
+            ),
+
+        "control_mouse":
+            PoliticaAutonomia(
+                "control_mouse",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Mouse requiere política GUI.",
+            ),
+
+        "escribir_aplicacion":
+            PoliticaAutonomia(
+                "escribir_aplicacion",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Escritura GUI requiere confirmación.",
+            ),
+
+        "enviar_mensaje":
+            PoliticaAutonomia(
+                "enviar_mensaje",
+                NivelAutonomia.CONFIRMACION,
+                4,
+                "Enviar requiere confirmación.",
+            ),
+
+        # Bloqueadas
+        "comando_arbitrario":
+            PoliticaAutonomia(
+                "comando_arbitrario",
+                NivelAutonomia.BLOQUEADA,
+                99,
+                "No se ejecutan comandos libres del LLM.",
+            ),
+
+        "modificar_politica_seguridad":
+            PoliticaAutonomia(
+                "modificar_politica_seguridad",
+                NivelAutonomia.BLOQUEADA,
+                99,
+                "ATENAS no cambia sola su política.",
+            ),
     }
 
     def __init__(
         self,
         presupuesto_por_ciclo: int = 10,
     ):
+
         self.presupuesto_por_ciclo = max(
             1,
-            int(presupuesto_por_ciclo),
+            int(
+                presupuesto_por_ciclo
+            ),
         )
 
         self.presupuesto_restante = (
             self.presupuesto_por_ciclo
         )
-
-    # =========================================================
-    # CICLO
-    # =========================================================
 
     def reiniciar_ciclo(
         self,
@@ -218,10 +292,6 @@ class GestorPresupuestoAutonomia:
         self.presupuesto_restante = (
             self.presupuesto_por_ciclo
         )
-
-    # =========================================================
-    # POLÍTICA
-    # =========================================================
 
     def politica(
         self,
@@ -233,26 +303,15 @@ class GestorPresupuestoAutonomia:
             or ""
         ).strip().lower()
 
-        politica = self.POLITICAS.get(
-            clave
-        )
-
-        if politica is not None:
-            return politica
-
-        # Acciones nuevas/desconocidas son conservadoras.
-        return PoliticaAutonomia(
-            accion=clave or "desconocida",
-            nivel=NivelAutonomia.CONFIRMACION,
-            costo=2,
-            descripcion=(
-                "La acción aún no tiene una política explícita."
+        return self.POLITICAS.get(
+            clave,
+            PoliticaAutonomia(
+                clave or "desconocida",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "La acción no posee política explícita.",
             ),
         )
-
-    # =========================================================
-    # EVALUAR
-    # =========================================================
 
     def evaluar(
         self,
@@ -261,8 +320,10 @@ class GestorPresupuestoAutonomia:
         confirmada: bool = False,
     ) -> EvaluacionAutonomia:
 
-        politica = self.politica(
-            accion
+        politica = (
+            self.politica(
+                accion
+            )
         )
 
         if (
@@ -271,16 +332,14 @@ class GestorPresupuestoAutonomia:
         ):
 
             return EvaluacionAutonomia(
-                permitida=False,
-                requiere_confirmacion=False,
-                bloqueada=True,
-                accion=politica.accion,
-                nivel=politica.nivel,
-                costo=politica.costo,
-                presupuesto_restante=(
-                    self.presupuesto_restante
-                ),
-                motivo=politica.descripcion,
+                False,
+                False,
+                True,
+                politica.accion,
+                politica.nivel,
+                politica.costo,
+                self.presupuesto_restante,
+                politica.descripcion,
             )
 
         if (
@@ -290,35 +349,27 @@ class GestorPresupuestoAutonomia:
         ):
 
             return EvaluacionAutonomia(
-                permitida=False,
-                requiere_confirmacion=True,
-                bloqueada=False,
-                accion=politica.accion,
-                nivel=politica.nivel,
-                costo=politica.costo,
-                presupuesto_restante=(
-                    self.presupuesto_restante
-                ),
-                motivo=politica.descripcion,
+                False,
+                True,
+                False,
+                politica.accion,
+                politica.nivel,
+                politica.costo,
+                self.presupuesto_restante,
+                politica.descripcion,
             )
 
-        # Las acciones explícitamente ordenadas por el usuario no consumen
-        # presupuesto autónomo. Siguen respetando bloqueos/confirmación.
         if not es_autonoma:
 
             return EvaluacionAutonomia(
-                permitida=True,
-                requiere_confirmacion=False,
-                bloqueada=False,
-                accion=politica.accion,
-                nivel=politica.nivel,
-                costo=0,
-                presupuesto_restante=(
-                    self.presupuesto_restante
-                ),
-                motivo=(
-                    "Acción explícita permitida por la política."
-                ),
+                True,
+                False,
+                False,
+                politica.accion,
+                politica.nivel,
+                0,
+                self.presupuesto_restante,
+                "Acción explícita permitida.",
             )
 
         if (
@@ -327,37 +378,26 @@ class GestorPresupuestoAutonomia:
         ):
 
             return EvaluacionAutonomia(
-                permitida=False,
-                requiere_confirmacion=False,
-                bloqueada=False,
-                accion=politica.accion,
-                nivel=politica.nivel,
-                costo=politica.costo,
-                presupuesto_restante=(
-                    self.presupuesto_restante
-                ),
-                motivo=(
-                    "No queda presupuesto autónomo suficiente "
-                    "para esta acción."
-                ),
+                False,
+                False,
+                False,
+                politica.accion,
+                politica.nivel,
+                politica.costo,
+                self.presupuesto_restante,
+                "Presupuesto autónomo insuficiente.",
             )
 
         return EvaluacionAutonomia(
-            permitida=True,
-            requiere_confirmacion=False,
-            bloqueada=False,
-            accion=politica.accion,
-            nivel=politica.nivel,
-            costo=politica.costo,
-            presupuesto_restante=(
-                self.presupuesto_restante
-            ),
-            motivo="Acción permitida.",
+            True,
+            False,
+            False,
+            politica.accion,
+            politica.nivel,
+            politica.costo,
+            self.presupuesto_restante,
+            "Acción permitida.",
         )
-
-    # =========================================================
-    # CONSUMIR
-    # =========================================================
 
     def consumir(
         self,

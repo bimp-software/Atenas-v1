@@ -1,15 +1,20 @@
 from __future__ import annotations
 
-import json
+import csv
+import io
 import os
 import platform
 import shutil
 import subprocess
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+from .gestor_ventanas import (
+    GestorVentanas,
+)
 
 
 class TipoAccionSistema(str, Enum):
@@ -23,10 +28,18 @@ class TipoAccionSistema(str, Enum):
 
     LISTAR_PROCESOS = "listar_procesos"
 
+    LISTAR_VENTANAS = "listar_ventanas"
+    VENTANA_ACTIVA = "ventana_activa"
+    ACTIVAR_VENTANA = "activar_ventana"
+    MINIMIZAR_VENTANA = "minimizar_ventana"
+    MAXIMIZAR_VENTANA = "maximizar_ventana"
+    RESTAURAR_VENTANA = "restaurar_ventana"
+
 
 @dataclass
 class AccionSistema:
     tipo: TipoAccionSistema
+
     argumentos: dict[str, Any] = field(
         default_factory=dict
     )
@@ -48,24 +61,24 @@ class ResultadoAccionSistema:
 
 class EjecutorSistema:
     """
-    Capa estructurada para interactuar con el computador.
+    Interacción estructurada con el computador.
 
-    Principios:
-    - NO recibe comandos shell arbitrarios.
-    - NO usa shell=True.
-    - Las escrituras se restringen a raíces autorizadas.
-    - Las aplicaciones se abren mediante alias registrados.
-    - No implementa borrado ni sobrescrituras peligrosas por defecto.
-    - Toda acción devuelve un resultado estructurado.
-
-    Esta capa será utilizada posteriormente por el Agente y por el
-    controlador de escritorio/mouse/teclado.
+    Nunca ejecuta texto libre como shell.
     """
 
     def __init__(
         self,
-        raices_escritura: list[str | Path] | None = None,
-        aplicaciones: dict[str, list[str]] | None = None,
+        raices_escritura: list[
+            str | Path
+        ] | None = None,
+        aplicaciones: dict[
+            str,
+            list[str],
+        ] | None = None,
+        gestor_ventanas: (
+            GestorVentanas
+            | None
+        ) = None,
     ):
 
         if raices_escritura is None:
@@ -79,7 +92,8 @@ class EjecutorSistema:
 
             self.raices_escritura = [
                 ruta.resolve()
-                for ruta in candidatos
+                for ruta
+                in candidatos
                 if ruta.exists()
             ]
 
@@ -89,7 +103,8 @@ class EjecutorSistema:
                 Path(
                     ruta
                 ).expanduser().resolve()
-                for ruta in raices_escritura
+                for ruta
+                in raices_escritura
             ]
 
         self.aplicaciones = (
@@ -97,16 +112,23 @@ class EjecutorSistema:
             or self._aplicaciones_por_defecto()
         )
 
+        self.gestor_ventanas = (
+            gestor_ventanas
+            or GestorVentanas()
+        )
+
     # =========================================================
-    # APLICACIONES CONOCIDAS
+    # APPS
     # =========================================================
 
     @staticmethod
     def _aplicaciones_por_defecto(
-        self=None,
     ) -> dict[str, list[str]]:
 
-        sistema = platform.system().lower()
+        sistema = (
+            platform.system()
+            .lower()
+        )
 
         if sistema == "windows":
 
@@ -125,6 +147,12 @@ class EjecutorSistema:
                 ],
                 "cmd": [
                     "cmd.exe",
+                ],
+                "vscode": [
+                    "code",
+                ],
+                "visual_studio_code": [
+                    "code",
                 ],
             }
 
@@ -145,12 +173,18 @@ class EjecutorSistema:
                     "-a",
                     "TextEdit",
                 ],
+                "vscode": [
+                    "code",
+                ],
             }
 
         return {
             "archivos": [
                 "xdg-open",
                 ".",
+            ],
+            "vscode": [
+                "code",
             ],
         }
 
@@ -166,13 +200,11 @@ class EjecutorSistema:
         ).strip().lower()
 
         if not alias:
-
             raise ValueError(
                 "El alias no puede estar vacío."
             )
 
         if not comando:
-
             raise ValueError(
                 "El comando estructurado no puede estar vacío."
             )
@@ -181,7 +213,8 @@ class EjecutorSistema:
             alias
         ] = [
             str(item)
-            for item in comando
+            for item
+            in comando
         ]
 
     # =========================================================
@@ -202,7 +235,9 @@ class EjecutorSistema:
         ruta: Path,
     ) -> bool:
 
-        for raiz in self.raices_escritura:
+        for raiz in (
+            self.raices_escritura
+        ):
 
             try:
 
@@ -227,21 +262,15 @@ class EjecutorSistema:
             ruta
         ):
 
-            permitidas = [
-                str(item)
-                for item in self.raices_escritura
-            ]
-
             raise PermissionError(
                 (
-                    "Ruta fuera de las raíces de escritura "
-                    f"autorizadas: {ruta}. "
-                    f"Permitidas: {permitidas}"
+                    "Ruta fuera de las raíces "
+                    f"autorizadas: {ruta}"
                 )
             )
 
     # =========================================================
-    # LECTURA
+    # ARCHIVOS
     # =========================================================
 
     def leer_texto(
@@ -260,9 +289,6 @@ class EjecutorSistema:
                 ok=False,
                 accion="leer_texto",
                 error="archivo_no_existe",
-                mensaje=(
-                    f"No existe: {archivo}"
-                ),
             )
 
         if not archivo.is_file():
@@ -273,7 +299,9 @@ class EjecutorSistema:
                 error="ruta_no_es_archivo",
             )
 
-        tamaño = archivo.stat().st_size
+        tamaño = (
+            archivo.stat().st_size
+        )
 
         if tamaño > max_bytes:
 
@@ -281,15 +309,14 @@ class EjecutorSistema:
                 ok=False,
                 accion="leer_texto",
                 error="archivo_demasiado_grande",
-                mensaje=(
-                    f"El archivo tiene {tamaño} bytes."
-                ),
             )
 
         try:
 
-            contenido = archivo.read_text(
-                encoding="utf-8"
+            contenido = (
+                archivo.read_text(
+                    encoding="utf-8"
+                )
             )
 
         except UnicodeDecodeError:
@@ -354,7 +381,9 @@ class EjecutorSistema:
             ),
         )[:max(
             1,
-            int(limite),
+            int(
+                limite
+            ),
         )]:
 
             elementos.append({
@@ -398,10 +427,6 @@ class EjecutorSistema:
             },
         )
 
-    # =========================================================
-    # ESCRITURA
-    # =========================================================
-
     def crear_carpeta(
         self,
         ruta: str | Path,
@@ -425,9 +450,7 @@ class EjecutorSistema:
             return ResultadoAccionSistema(
                 ok=True,
                 accion="crear_carpeta",
-                mensaje=(
-                    "Carpeta disponible."
-                ),
+                mensaje="Carpeta disponible.",
                 datos={
                     "ruta":
                         str(
@@ -473,9 +496,6 @@ class EjecutorSistema:
                     ok=False,
                     accion="escribir_texto",
                     error="archivo_ya_existe",
-                    mensaje=(
-                        "No se sobrescribió el archivo."
-                    ),
                 )
 
             archivo.parent.mkdir(
@@ -515,7 +535,7 @@ class EjecutorSistema:
             )
 
     # =========================================================
-    # ABRIR RUTAS / APLICACIONES
+    # ABRIR
     # =========================================================
 
     def abrir_ruta(
@@ -537,7 +557,10 @@ class EjecutorSistema:
 
         try:
 
-            sistema = platform.system().lower()
+            sistema = (
+                platform.system()
+                .lower()
+            )
 
             if sistema == "windows":
 
@@ -605,8 +628,10 @@ class EjecutorSistema:
             or ""
         ).strip().lower()
 
-        comando = self.aplicaciones.get(
-            clave
+        comando = (
+            self.aplicaciones.get(
+                clave
+            )
         )
 
         if comando is None:
@@ -615,9 +640,6 @@ class EjecutorSistema:
                 ok=False,
                 accion="abrir_aplicacion",
                 error="aplicacion_no_registrada",
-                mensaje=(
-                    f"Alias no registrado: {clave}"
-                ),
                 datos={
                     "disponibles":
                         sorted(
@@ -634,25 +656,8 @@ class EjecutorSistema:
 
             comando_final.extend(
                 str(item)
-                for item in argumentos
-            )
-
-        ejecutable = comando_final[0]
-
-        if (
-            platform.system().lower()
-            != "windows"
-            and shutil.which(
-                ejecutable
-            )
-            is None
-        ):
-
-            return ResultadoAccionSistema(
-                ok=False,
-                accion="abrir_aplicacion",
-                error="ejecutable_no_disponible",
-                mensaje=ejecutable,
+                for item
+                in argumentos
             )
 
         try:
@@ -674,9 +679,6 @@ class EjecutorSistema:
 
                     "pid":
                         proceso.pid,
-
-                    "comando":
-                        comando_final,
                 },
             )
 
@@ -700,7 +702,10 @@ class EjecutorSistema:
         limite: int = 300,
     ) -> ResultadoAccionSistema:
 
-        sistema = platform.system().lower()
+        sistema = (
+            platform.system()
+            .lower()
+        )
 
         try:
 
@@ -725,14 +730,7 @@ class EjecutorSistema:
                         ok=False,
                         accion="listar_procesos",
                         error="tasklist_fallo",
-                        mensaje=(
-                            proceso.stderr
-                            or ""
-                        ),
                     )
-
-                import csv
-                import io
 
                 filas = csv.reader(
                     io.StringIO(
@@ -755,7 +753,9 @@ class EjecutorSistema:
                             fila[1],
                     })
 
-                    if len(procesos) >= limite:
+                    if len(
+                        procesos
+                    ) >= limite:
                         break
 
             else:
@@ -772,14 +772,6 @@ class EjecutorSistema:
                     shell=False,
                 )
 
-                if proceso.returncode != 0:
-
-                    return ResultadoAccionSistema(
-                        ok=False,
-                        accion="listar_procesos",
-                        error="ps_fallo",
-                    )
-
                 procesos = []
 
                 for linea in (
@@ -787,9 +779,12 @@ class EjecutorSistema:
                     or ""
                 ).splitlines():
 
-                    partes = linea.strip().split(
-                        None,
-                        1,
+                    partes = (
+                        linea.strip()
+                        .split(
+                            None,
+                            1,
+                        )
                     )
 
                     if len(partes) != 2:
@@ -803,7 +798,9 @@ class EjecutorSistema:
                             partes[1],
                     })
 
-                    if len(procesos) >= limite:
+                    if len(
+                        procesos
+                    ) >= limite:
                         break
 
             return ResultadoAccionSistema(
@@ -830,7 +827,165 @@ class EjecutorSistema:
             )
 
     # =========================================================
-    # DESPACHO ESTRUCTURADO
+    # VENTANAS
+    # =========================================================
+
+    def listar_ventanas(
+        self,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.gestor_ventanas
+            .listar()
+        )
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion="listar_ventanas",
+            mensaje=resultado.mensaje,
+            error=resultado.error,
+            datos={
+                "ventanas": [
+                    {
+                        "hwnd":
+                            v.hwnd,
+
+                        "titulo":
+                            v.titulo,
+
+                        "pid":
+                            v.proceso_id,
+
+                        "x":
+                            v.x,
+
+                        "y":
+                            v.y,
+
+                        "ancho":
+                            v.ancho,
+
+                        "alto":
+                            v.alto,
+
+                        "activa":
+                            v.activa,
+                    }
+                    for v
+                    in resultado.ventanas
+                ]
+            },
+        )
+
+    def ventana_activa(
+        self,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.gestor_ventanas
+            .activa()
+        )
+
+        datos = {}
+
+        if resultado.ventana:
+
+            v = resultado.ventana
+
+            datos["ventana"] = {
+                "hwnd":
+                    v.hwnd,
+
+                "titulo":
+                    v.titulo,
+
+                "pid":
+                    v.proceso_id,
+
+                "x":
+                    v.x,
+
+                "y":
+                    v.y,
+
+                "ancho":
+                    v.ancho,
+
+                "alto":
+                    v.alto,
+
+                "activa":
+                    v.activa,
+            }
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion="ventana_activa",
+            mensaje=resultado.mensaje,
+            error=resultado.error,
+            datos=datos,
+        )
+
+    def _accion_ventana(
+        self,
+        metodo: str,
+        accion: str,
+        hwnd: int | None = None,
+        titulo: str | None = None,
+    ) -> ResultadoAccionSistema:
+
+        funcion = getattr(
+            self.gestor_ventanas,
+            metodo,
+        )
+
+        resultado = funcion(
+            hwnd=hwnd,
+            titulo=titulo,
+        )
+
+        datos = {}
+
+        if resultado.ventana:
+
+            v = resultado.ventana
+
+            datos["ventana"] = {
+                "hwnd":
+                    v.hwnd,
+
+                "titulo":
+                    v.titulo,
+
+                "pid":
+                    v.proceso_id,
+
+                "x":
+                    v.x,
+
+                "y":
+                    v.y,
+
+                "ancho":
+                    v.ancho,
+
+                "alto":
+                    v.alto,
+
+                "activa":
+                    v.activa,
+            }
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=accion,
+            mensaje=resultado.mensaje,
+            error=resultado.error,
+            datos=datos,
+        )
+
+    # =========================================================
+    # DESPACHO
     # =========================================================
 
     def ejecutar(
@@ -839,30 +994,21 @@ class EjecutorSistema:
     ) -> ResultadoAccionSistema:
 
         tipo = accion.tipo
-        args = accion.argumentos or {}
+        args = (
+            accion.argumentos
+            or {}
+        )
 
         if tipo == TipoAccionSistema.LEER_TEXTO:
 
             return self.leer_texto(
-                ruta=args["ruta"],
-                max_bytes=int(
-                    args.get(
-                        "max_bytes",
-                        2_000_000,
-                    )
-                ),
+                ruta=args["ruta"]
             )
 
         if tipo == TipoAccionSistema.LISTAR_DIRECTORIO:
 
             return self.listar_directorio(
-                ruta=args["ruta"],
-                limite=int(
-                    args.get(
-                        "limite",
-                        200,
-                    )
-                ),
+                ruta=args["ruta"]
             )
 
         if tipo == TipoAccionSistema.CREAR_CARPETA:
@@ -899,13 +1045,12 @@ class EjecutorSistema:
 
             return self.abrir_aplicacion(
                 alias=str(
-                    args[
-                        "alias"
-                    ]
+                    args["alias"]
                 ),
                 argumentos=[
                     str(item)
-                    for item in (
+                    for item
+                    in (
                         args.get(
                             "argumentos",
                             [],
@@ -917,13 +1062,66 @@ class EjecutorSistema:
 
         if tipo == TipoAccionSistema.LISTAR_PROCESOS:
 
-            return self.listar_procesos(
-                limite=int(
-                    args.get(
-                        "limite",
-                        300,
-                    )
-                )
+            return self.listar_procesos()
+
+        if tipo == TipoAccionSistema.LISTAR_VENTANAS:
+
+            return self.listar_ventanas()
+
+        if tipo == TipoAccionSistema.VENTANA_ACTIVA:
+
+            return self.ventana_activa()
+
+        if tipo == TipoAccionSistema.ACTIVAR_VENTANA:
+
+            return self._accion_ventana(
+                metodo="activar",
+                accion="activar_ventana",
+                hwnd=args.get(
+                    "hwnd"
+                ),
+                titulo=args.get(
+                    "titulo"
+                ),
+            )
+
+        if tipo == TipoAccionSistema.MINIMIZAR_VENTANA:
+
+            return self._accion_ventana(
+                metodo="minimizar",
+                accion="minimizar_ventana",
+                hwnd=args.get(
+                    "hwnd"
+                ),
+                titulo=args.get(
+                    "titulo"
+                ),
+            )
+
+        if tipo == TipoAccionSistema.MAXIMIZAR_VENTANA:
+
+            return self._accion_ventana(
+                metodo="maximizar",
+                accion="maximizar_ventana",
+                hwnd=args.get(
+                    "hwnd"
+                ),
+                titulo=args.get(
+                    "titulo"
+                ),
+            )
+
+        if tipo == TipoAccionSistema.RESTAURAR_VENTANA:
+
+            return self._accion_ventana(
+                metodo="restaurar",
+                accion="restaurar_ventana",
+                hwnd=args.get(
+                    "hwnd"
+                ),
+                titulo=args.get(
+                    "titulo"
+                ),
             )
 
         return ResultadoAccionSistema(
@@ -934,10 +1132,6 @@ class EjecutorSistema:
             error="accion_no_soportada",
         )
 
-    # =========================================================
-    # CATÁLOGO PARA AGENTE/UI
-    # =========================================================
-
     def catalogo(
         self,
     ) -> dict[str, Any]:
@@ -945,17 +1139,21 @@ class EjecutorSistema:
         return {
             "acciones": [
                 item.value
-                for item in TipoAccionSistema
+                for item
+                in TipoAccionSistema
             ],
 
             "raices_escritura": [
                 str(item)
-                for item in (
-                    self.raices_escritura
-                )
+                for item
+                in self.raices_escritura
             ],
 
-            "aplicaciones": sorted(
-                self.aplicaciones.keys()
-            ),
+            "aplicaciones":
+                sorted(
+                    self.aplicaciones.keys()
+                ),
+
+            "gestor_ventanas":
+                self.gestor_ventanas.disponible,
         }

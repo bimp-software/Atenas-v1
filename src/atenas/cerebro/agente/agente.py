@@ -37,6 +37,11 @@ from .capacidad_desarrollo import (
     ResultadoCapacidadDesarrollo,
 )
 
+from .capacidad_sistema import (
+    CapacidadSistema,
+    ResultadoCapacidadSistema,
+)
+
 from src.atenas.memoria.store_manager import (
     StorageManager,
 )
@@ -65,6 +70,10 @@ class AgenteAtenas:
         storage: StorageManager | None = None,
         capacidad_desarrollo: (
             CapacidadDesarrollo
+            | None
+        ) = None,
+        capacidad_sistema: (
+            CapacidadSistema
             | None
         ) = None,
     ):
@@ -102,6 +111,11 @@ class AgenteAtenas:
             or CapacidadDesarrollo(
                 llm=self.planificador.llm
             )
+        )
+
+        self.capacidad_sistema = (
+            capacidad_sistema
+            or CapacidadSistema()
         )
 
         self.objetivos.cargar(
@@ -277,7 +291,10 @@ class AgenteAtenas:
 
         if (
             decision.capacidad
-            == "desarrollo_software"
+            in {
+                "desarrollo_software",
+                "sistema_computador",
+            }
         ):
 
             return {
@@ -897,6 +914,17 @@ class AgenteAtenas:
                 )
             )
 
+        if (
+            decision.capacidad
+            == "sistema_computador"
+        ):
+
+            return (
+                self._actuar_sistema(
+                    decision
+                )
+            )
+
         return (
             self._actuar_pendiente(
                 decision=decision,
@@ -952,5 +980,24 @@ class AgenteAtenas:
             self.capacidad_desarrollo
             .listar_proyectos(
                 solo_activos=solo_activos
+            )
+        )
+
+
+    def ejecutar_accion_sistema(
+        self,
+        texto: str,
+        confirmada: bool = False,
+    ) -> ResultadoCapacidadSistema:
+        """
+        API explícita para UI/usuario.
+        """
+
+        return (
+            self.capacidad_sistema
+            .ejecutar_desde_texto(
+                texto=texto,
+                es_autonoma=False,
+                confirmada=confirmada,
             )
         )

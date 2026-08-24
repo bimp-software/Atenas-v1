@@ -13,11 +13,22 @@ from .catalogo_capacidades import (
     es_capacidad,
 )
 
+from .gestor_ventanas import (
+    VentanaSistema,
+    ResultadoVentanas,
+    GestorVentanas,
+)
+
 from .ejecutor_sistema import (
     TipoAccionSistema,
     AccionSistema,
     ResultadoAccionSistema,
     EjecutorSistema,
+)
+
+from .capacidad_sistema import (
+    ResultadoCapacidadSistema,
+    CapacidadSistema,
 )
 
 from .gestor_presupuesto_autonomia import (
@@ -116,10 +127,17 @@ __all__ = [
     "catalogo_capacidades_para_llm",
     "es_capacidad",
 
+    "VentanaSistema",
+    "ResultadoVentanas",
+    "GestorVentanas",
+
     "TipoAccionSistema",
     "AccionSistema",
     "ResultadoAccionSistema",
     "EjecutorSistema",
+
+    "ResultadoCapacidadSistema",
+    "CapacidadSistema",
 
     "NivelAutonomia",
     "PoliticaAutonomia",
@@ -143,7 +161,6 @@ __all__ = [
     "DetectorNecesidades",
 
     "EstadoMundo",
-
     "GeneradorAcciones",
 
     "EstadoObjetivo",

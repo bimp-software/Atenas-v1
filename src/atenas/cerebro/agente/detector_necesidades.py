@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from src.atenas.cerebro.memoria.clasificador import (
     ClasificadorMemoria,
 )
+
 from src.atenas.memoria.store_manager import (
     StorageManager,
 )
@@ -32,20 +33,7 @@ class NecesidadDetectada:
 
 class DetectorNecesidades:
     """
-    Detector híbrido de iniciativa de ATENAS.
-
-    Detecta dos grandes clases de necesidades:
-
-    1. Necesidades relacionadas con objetivos activos.
-    2. Necesidades explícitas de desarrollo de software, incluso si
-       todavía no existe un objetivo formal asociado.
-
-    Una necesidad de software se transforma posteriormente en un
-    pendiente especial con:
-        accion_sugerida = "desarrollo_software:crear_proyecto"
-
-    Esto permite persistir la intención antes de que DecisionEngine
-    decida ejecutarla.
+    Detector V4: software + sistema + ventanas + objetivos.
     """
 
     INDICADORES_CAMBIO = (
@@ -53,35 +41,19 @@ class DetectorNecesidades:
         "quiero",
         "decidí",
         "decidi",
-        "mejor",
         "cambiaré",
         "cambiare",
         "usaré",
         "usare",
-        "tendrá",
-        "tendra",
-        "tendrán",
-        "tendran",
         "haré",
         "hare",
         "agregaré",
         "agregare",
-        "eliminaré",
-        "eliminare",
-        "utilizaré",
-        "utilizare",
-        "estoy usando",
-        "estoy utilizando",
         "estoy creando",
         "estoy desarrollando",
-        "primero",
         "después",
         "despues",
     )
-
-    # =========================================================
-    # DESARROLLO
-    # =========================================================
 
     VERBOS_DESARROLLO = (
         "crear",
@@ -119,25 +91,10 @@ class DetectorNecesidades:
         "frontend",
         "base de datos",
         "programa",
-        "aplicativo",
         "dashboard",
         "panel web",
         "sistema web",
         "sistema de escritorio",
-        "aplicacion de escritorio",
-        "aplicación de escritorio",
-    )
-
-    INDICADORES_PROYECTO_CLIENTE = (
-        "para un cliente",
-        "para mi cliente",
-        "proyecto de cliente",
-        "sistema para",
-        "software para",
-        "aplicacion para",
-        "aplicación para",
-        "plataforma para",
-        "portal para",
     )
 
     EXCLUSIONES_DESARROLLO = (
@@ -145,18 +102,15 @@ class DetectorNecesidades:
         "que es un sistema",
         "qué es software",
         "que es software",
-        "explica qué",
-        "explica que",
         "definición de",
         "definicion de",
-        "qué opinas",
-        "que opinas",
     )
 
     def __init__(
         self,
         storage: StorageManager | None = None,
     ):
+
         self.storage = (
             storage
             or StorageManager()
@@ -165,10 +119,6 @@ class DetectorNecesidades:
         self.clasificador = (
             ClasificadorMemoria()
         )
-
-    # =========================================================
-    # DETECTAR
-    # =========================================================
 
     def detectar(
         self,
@@ -191,56 +141,56 @@ class DetectorNecesidades:
             )
         )
 
-        necesidades: list[
-            NecesidadDetectada
-        ] = []
+        dominio = getattr(
+            clasificacion,
+            "dominio",
+            None,
+        )
 
-        # =====================================================
-        # 1. NECESIDAD DE DESARROLLO INDEPENDIENTE
-        # =====================================================
+        categoria = getattr(
+            clasificacion,
+            "categoria",
+            None,
+        )
 
-        necesidad_desarrollo = (
+        necesidades = []
+
+        desarrollo = (
             self._detectar_desarrollo(
-                mensaje=mensaje,
-                dominio=getattr(
-                    clasificacion,
-                    "dominio",
-                    None,
-                ),
-                categoria=getattr(
-                    clasificacion,
-                    "categoria",
-                    None,
-                ),
+                mensaje,
+                dominio,
+                categoria,
             )
         )
 
-        if necesidad_desarrollo is not None:
-
+        if desarrollo:
             necesidades.append(
-                necesidad_desarrollo
+                desarrollo
             )
 
-        # =====================================================
-        # 2. NECESIDADES RELACIONADAS A OBJETIVOS
-        # =====================================================
+        sistema = (
+            self._detectar_sistema(
+                mensaje,
+                dominio,
+                categoria,
+            )
+        )
 
-        for objetivo in objetivos.activos():
+        if sistema:
+            necesidades.append(
+                sistema
+            )
+
+        for objetivo in (
+            objetivos.activos()
+        ):
 
             necesidad = (
                 self._evaluar_objetivo(
                     mensaje=mensaje,
                     objetivo=objetivo,
-                    dominio=getattr(
-                        clasificacion,
-                        "dominio",
-                        "",
-                    ),
-                    categoria=getattr(
-                        clasificacion,
-                        "categoria",
-                        "",
-                    ),
+                    dominio=dominio or "",
+                    categoria=categoria or "",
                 )
             )
 
@@ -254,7 +204,148 @@ class DetectorNecesidades:
         )
 
     # =========================================================
-    # DETECCIÓN DE DESARROLLO
+    # SISTEMA
+    # =========================================================
+
+    @staticmethod
+    def _detectar_sistema(
+        mensaje: str,
+        dominio: str | None,
+        categoria: str | None,
+    ) -> NecesidadDetectada | None:
+
+        t = mensaje.lower()
+
+        patrones = (
+            (
+                "listar_ventanas",
+                (
+                    "lista las ventanas",
+                    "listar ventanas",
+                    "muestra las ventanas",
+                    "ventanas abiertas",
+                    "qué ventanas",
+                    "que ventanas",
+                ),
+            ),
+            (
+                "ventana_activa",
+                (
+                    "ventana activa",
+                    "qué ventana está activa",
+                    "que ventana esta activa",
+                    "cuál es la ventana activa",
+                    "cual es la ventana activa",
+                ),
+            ),
+            (
+                "activar_ventana",
+                (
+                    "activa la ventana",
+                    "activar la ventana",
+                    "trae al frente la ventana",
+                    "pon al frente la ventana",
+                ),
+            ),
+            (
+                "maximizar_ventana",
+                (
+                    "maximiza la ventana",
+                    "maximizar la ventana",
+                ),
+            ),
+            (
+                "minimizar_ventana",
+                (
+                    "minimiza la ventana",
+                    "minimizar la ventana",
+                ),
+            ),
+            (
+                "restaurar_ventana",
+                (
+                    "restaura la ventana",
+                    "restaurar la ventana",
+                ),
+            ),
+            (
+                "crear_carpeta",
+                (
+                    "crea una carpeta",
+                    "crear una carpeta",
+                    "haz una carpeta",
+                ),
+            ),
+            (
+                "abrir_aplicacion",
+                (
+                    "abre el explorador",
+                    "abre explorador",
+                    "abre powershell",
+                    "abre cmd",
+                    "abre el bloc de notas",
+                    "abre notepad",
+                    "abre visual studio code",
+                    "abre vs code",
+                    "abre vscode",
+                ),
+            ),
+            (
+                "listar_procesos",
+                (
+                    "lista los procesos",
+                    "muestra los procesos",
+                    "programas abiertos",
+                    "aplicaciones abiertas",
+                ),
+            ),
+            (
+                "listar_directorio",
+                (
+                    "qué hay en el escritorio",
+                    "que hay en el escritorio",
+                    "lista los archivos",
+                    "muestra los archivos",
+                ),
+            ),
+            (
+                "leer_texto",
+                (
+                    "lee el archivo",
+                    "leer el archivo",
+                    "contenido del archivo",
+                ),
+            ),
+        )
+
+        for accion, frases in (
+            patrones
+        ):
+
+            if any(
+                frase in t
+                for frase
+                in frases
+            ):
+
+                return NecesidadDetectada(
+                    descripcion=mensaje,
+                    objetivo_id=None,
+                    prioridad=0.82,
+                    confianza=0.94,
+                    tipo="sistema_computador",
+                    dominio=dominio,
+                    categoria=categoria,
+                    accion_sugerida=(
+                        "sistema_computador:"
+                        + accion
+                    ),
+                )
+
+        return None
+
+    # =========================================================
+    # DESARROLLO
     # =========================================================
 
     @classmethod
@@ -266,13 +357,9 @@ class DetectorNecesidades:
     ) -> NecesidadDetectada | None:
 
         texto = (
-            mensaje
+            mensaje.lower()
             .strip()
-            .lower()
         )
-
-        if not texto:
-            return None
 
         if any(
             exclusion in texto
@@ -297,73 +384,50 @@ class DetectorNecesidades:
             if objeto in texto
         ]
 
-        if not objetos:
-            return None
-
-        score = 0.0
-
-        if tiene_verbo:
-            score += 0.48
-
-        # Un objeto software explícito es una señal fuerte.
-        score += min(
-            0.30,
-            len(
-                objetos
-            )
-            * 0.15,
-        )
-
-        if any(
-            patron in texto
-            for patron
-            in cls.INDICADORES_PROYECTO_CLIENTE
+        if (
+            not tiene_verbo
+            or not objetos
         ):
-            score += 0.12
-
-        if dominio in {
-            "informatica",
-            "programacion",
-            "software",
-            "web",
-        }:
-            score += 0.08
-
-        # Debe existir intención de construcción, no solo mención.
-        if not tiene_verbo:
             return None
 
-        if score < 0.60:
-            return None
-
-        confianza = min(
-            0.97,
-            0.55 + score * 0.45,
-        )
-
-        prioridad = min(
-            1.0,
-            max(
-                0.78,
-                score,
-            ),
+        score = (
+            0.48
+            + min(
+                0.30,
+                len(
+                    objetos
+                )
+                * 0.15,
+            )
         )
 
         return NecesidadDetectada(
             descripcion=mensaje,
             objetivo_id=None,
-            prioridad=prioridad,
-            confianza=confianza,
+            prioridad=max(
+                0.78,
+                min(
+                    1.0,
+                    score,
+                ),
+            ),
+            confianza=min(
+                0.97,
+                0.55
+                + score
+                * 0.45,
+            ),
             tipo="desarrollo_software",
             dominio=dominio,
             categoria=categoria,
             accion_sugerida=(
-                "desarrollo_software:crear_proyecto"
+                "desarrollo_software:"
+                "crear_proyecto"
             ),
         )
 
     # =========================================================
-    # EVALUAR OBJETIVO
+    # OBJETIVOS
     # =========================================================
 
     def _evaluar_objetivo(
@@ -390,20 +454,14 @@ class DetectorNecesidades:
         ):
             score += 0.25
 
-        dominios_proyecto = {
+        if dominio in {
             "robotica",
             "informatica",
             "electronica",
             "vision",
             "audio",
-        }
-
-        if dominio in dominios_proyecto:
+        }:
             score += 0.25
-
-        # =====================================================
-        # MEMORIA VECTORIAL
-        # =====================================================
 
         try:
 
@@ -418,32 +476,22 @@ class DetectorNecesidades:
 
             if similares:
 
-                similitud_maxima = max(
-                    float(
-                        item.get(
-                            "similitud_semantica",
-                            0.0,
-                        )
-                    )
-                    for item
-                    in similares
-                )
-
                 score += (
-                    similitud_maxima
+                    max(
+                        float(
+                            item.get(
+                                "similitud_semantica",
+                                0.0,
+                            )
+                        )
+                        for item
+                        in similares
+                    )
                     * 0.30
                 )
 
-        except Exception as error:
-
-            print(
-                "[ATENAS][NECESIDADES][VECTOR] "
-                f"{error}"
-            )
-
-        # =====================================================
-        # GRAFO
-        # =====================================================
+        except Exception:
+            pass
 
         try:
 
@@ -458,36 +506,24 @@ class DetectorNecesidades:
             if relaciones:
 
                 score += min(
-                    len(relaciones)
+                    len(
+                        relaciones
+                    )
                     * 0.03,
                     0.20,
                 )
 
-        except Exception as error:
-
-            print(
-                "[ATENAS][NECESIDADES][GRAFO] "
-                f"{error}"
-            )
-
-        # =====================================================
-        # DOCUMENTACIÓN
-        # =====================================================
+        except Exception:
+            pass
 
         if "document" in objetivo_texto:
 
             if score < 0.40:
                 return None
 
-            confianza = min(
-                0.45 + score,
-                0.98,
-            )
-
             return NecesidadDetectada(
                 descripcion=(
-                    "Documentar una actualización "
-                    "relevante del proyecto: "
+                    "Documentar actualización: "
                     f"{mensaje}"
                 ),
                 objetivo_id=objetivo.id,
@@ -498,20 +534,17 @@ class DetectorNecesidades:
                         1.0,
                     ),
                 ),
-                confianza=confianza,
+                confianza=min(
+                    0.45 + score,
+                    0.98,
+                ),
                 tipo="documentacion",
                 dominio=dominio,
                 categoria=categoria,
-                accion_sugerida=(
-                    "crear_nota"
-                ),
+                accion_sugerida="crear_nota",
             )
 
         return None
-
-    # =========================================================
-    # DEDUPLICAR
-    # =========================================================
 
     @staticmethod
     def _deduplicar(
@@ -523,18 +556,15 @@ class DetectorNecesidades:
         resultado = []
         claves = set()
 
-        for necesidad in necesidades:
+        for necesidad in (
+            necesidades
+        ):
 
             clave = (
                 necesidad.tipo,
                 necesidad.objetivo_id,
-                (
-                    necesidad.accion_sugerida
-                    or ""
-                ),
-                necesidad.descripcion
-                .strip()
-                .lower(),
+                necesidad.accion_sugerida,
+                necesidad.descripcion.lower().strip(),
             )
 
             if clave in claves:

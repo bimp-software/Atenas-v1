@@ -26,6 +26,8 @@ class TipoDecisionAgente(str, Enum):
     CONTINUAR_PROYECTO = "continuar_proyecto"
     CONSULTAR_PROYECTO = "consultar_proyecto"
 
+    ACCION_SISTEMA = "accion_sistema"
+
 
 @dataclass
 class Decision:
@@ -43,6 +45,7 @@ class Decision:
     accion_capacidad: str | None = None
 
     proyecto_id: str | None = None
+
     argumentos: dict[str, Any] | None = None
 
     autonomo: bool = False
@@ -50,15 +53,22 @@ class Decision:
 
 class DecisionEngine:
     """
-    DecisionEngine V3.
+    DecisionEngine V4.
 
-    La elección ampliada ya no usa reglas rígidas del tipo
-    "si prioridad >= 0.8". Delega la comparación heterogénea al
-    DirectorIniciativaAgente.
+    Puede seleccionar:
+    - pendiente tradicional;
+    - creación de software;
+    - continuación autónoma;
+    - acción estructurada del computador.
     """
 
     ACCION_CREAR_PROYECTO = (
-        "desarrollo_software:crear_proyecto"
+        "desarrollo_software:"
+        "crear_proyecto"
+    )
+
+    PREFIJO_SISTEMA = (
+        "sistema_computador:"
     )
 
     def __init__(
@@ -68,6 +78,7 @@ class DecisionEngine:
             | None
         ) = None,
     ):
+
         self.director = (
             director
             or DirectorIniciativaAgente()
@@ -81,8 +92,7 @@ class DecisionEngine:
     ) -> Decision:
 
         candidato = (
-            self.director
-            .elegir(
+            self.director.elegir(
                 pendientes=pendientes,
                 capacidad_desarrollo=None,
                 permitir_proyectos=False,
@@ -108,13 +118,14 @@ class DecisionEngine:
             ),
             motivo=(
                 "El Director de Iniciativa "
-                "seleccionó el trabajo prioritario."
+                "seleccionó trabajo."
             ),
             prioridad=(
                 candidato.score
             ),
             tipo=(
-                TipoDecisionAgente.PENDIENTE
+                TipoDecisionAgente
+                .PENDIENTE
             ),
             autonomo=True,
         )
@@ -132,8 +143,7 @@ class DecisionEngine:
     ) -> Decision:
 
         candidato = (
-            self.director
-            .elegir(
+            self.director.elegir(
                 pendientes=pendientes,
                 capacidad_desarrollo=(
                     capacidad_desarrollo
@@ -152,10 +162,11 @@ class DecisionEngine:
             return Decision(
                 actuar=False,
                 motivo=(
-                    "No existe trabajo ejecutable "
-                    "en este ciclo."
+                    "No existe trabajo ejecutable."
                 ),
-                tipo=TipoDecisionAgente.NADA,
+                tipo=(
+                    TipoDecisionAgente.NADA
+                ),
             )
 
         if (
@@ -166,8 +177,8 @@ class DecisionEngine:
             return Decision(
                 actuar=True,
                 motivo=(
-                    "El Director de Iniciativa "
-                    "seleccionó un proyecto activo."
+                    "El Director seleccionó "
+                    "un proyecto activo."
                 ),
                 prioridad=(
                     candidato.score
@@ -195,32 +206,19 @@ class DecisionEngine:
                 autonomo=True,
             )
 
-        # =====================================================
-        # PENDIENTE
-        # =====================================================
-
-        pendiente = None
-
-        try:
-
-            pendiente = (
-                pendientes.obtener(
-                    candidato.id
-                )
+        pendiente = (
+            pendientes.obtener(
+                candidato.id
             )
-
-        except Exception:
-            pendiente = None
+        )
 
         if pendiente is None:
 
             return Decision(
                 actuar=False,
                 motivo=(
-                    "El trabajo seleccionado "
-                    "ya no existe."
+                    "El pendiente ya no existe."
                 ),
-                tipo=TipoDecisionAgente.NADA,
             )
 
         accion = (
@@ -233,19 +231,13 @@ class DecisionEngine:
             == self.ACCION_CREAR_PROYECTO
         ):
 
-            descripcion = (
-                pendiente.mensaje_origen
-                or pendiente.descripcion
-            )
-
             return Decision(
                 actuar=True,
                 pendiente_id=(
                     pendiente.id
                 ),
                 motivo=(
-                    "El Director de Iniciativa "
-                    "priorizó una solicitud de software."
+                    "Solicitud de software priorizada."
                 ),
                 prioridad=(
                     candidato.score
@@ -262,7 +254,12 @@ class DecisionEngine:
                 ),
                 argumentos={
                     "descripcion":
-                        descripcion,
+                        (
+                            pendiente
+                            .mensaje_origen
+                            or pendiente
+                            .descripcion
+                        ),
 
                     "nombre_sugerido":
                         None,
@@ -280,14 +277,58 @@ class DecisionEngine:
                 autonomo=False,
             )
 
+        if accion.startswith(
+            self.PREFIJO_SISTEMA
+        ):
+
+            accion_sistema = (
+                accion.split(
+                    ":",
+                    1,
+                )[1]
+            )
+
+            return Decision(
+                actuar=True,
+                pendiente_id=(
+                    pendiente.id
+                ),
+                motivo=(
+                    "Solicitud estructurada "
+                    "del sistema priorizada."
+                ),
+                prioridad=(
+                    candidato.score
+                ),
+                tipo=(
+                    TipoDecisionAgente
+                    .ACCION_SISTEMA
+                ),
+                capacidad=(
+                    "sistema_computador"
+                ),
+                accion_capacidad=(
+                    accion_sistema
+                ),
+                argumentos={
+                    "texto":
+                        (
+                            pendiente
+                            .mensaje_origen
+                            or pendiente
+                            .descripcion
+                        )
+                },
+                autonomo=False,
+            )
+
         return Decision(
             actuar=True,
             pendiente_id=(
                 pendiente.id
             ),
             motivo=(
-                "El Director de Iniciativa "
-                "seleccionó un pendiente."
+                "Pendiente tradicional seleccionado."
             ),
             prioridad=(
                 candidato.score
