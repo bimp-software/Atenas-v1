@@ -217,6 +217,61 @@ class DetectorNecesidades:
         t = mensaje.lower()
 
         patrones = (
+
+            (
+                "pulsar_tecla",
+                (
+                    "presiona enter",
+                    "pulsa enter",
+                    "presiona escape",
+                    "pulsa escape",
+                    "presiona tab",
+                    "pulsa tab",
+                ),
+            ),
+            (
+                "combinacion_teclas",
+                (
+                    "ctrl+s",
+                    "control+s",
+                    "ctrl+c",
+                    "ctrl+v",
+                    "ctrl+x",
+                    "ctrl+z",
+                    "alt+tab",
+                ),
+            ),
+
+            (
+                "posicion_mouse",
+                (
+                    "posición del mouse",
+                    "posicion del mouse",
+                    "dónde está el mouse",
+                    "donde esta el mouse",
+                    "posición del cursor",
+                    "posicion del cursor",
+                ),
+            ),
+            (
+                "mover_mouse",
+                (
+                    "mueve el mouse",
+                    "mover el mouse",
+                    "mueve el cursor",
+                    "mover el cursor",
+                ),
+            ),
+            (
+                "scroll_mouse",
+                (
+                    "haz scroll",
+                    "hacer scroll",
+                    "scroll hacia",
+                    "desplaza hacia arriba",
+                    "desplaza hacia abajo",
+                ),
+            ),
             (
                 "listar_ventanas",
                 (

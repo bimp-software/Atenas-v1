@@ -227,12 +227,108 @@ class GestorPresupuestoAutonomia:
                 "Eliminar requiere confirmación.",
             ),
 
+        "posicion_mouse":
+            PoliticaAutonomia(
+                "posicion_mouse",
+                NivelAutonomia.LIBRE,
+                0,
+                "Consultar la posición del cursor.",
+            ),
+
+        "mover_mouse":
+            PoliticaAutonomia(
+                "mover_mouse",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Mover el cursor de forma estructurada.",
+            ),
+
+        "mover_mouse_ventana":
+            PoliticaAutonomia(
+                "mover_mouse_ventana",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Mover el cursor relativo a una ventana conocida.",
+            ),
+
+        "click_mouse":
+            PoliticaAutonomia(
+                "click_mouse",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Un click puede producir efectos en aplicaciones externas.",
+            ),
+
+        "doble_click_mouse":
+            PoliticaAutonomia(
+                "doble_click_mouse",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Un doble click puede producir efectos externos.",
+            ),
+
+        "click_mouse_ventana":
+            PoliticaAutonomia(
+                "click_mouse_ventana",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Hacer click dentro de una aplicación requiere confirmación.",
+            ),
+
+        "scroll_mouse":
+            PoliticaAutonomia(
+                "scroll_mouse",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Desplazar la vista mediante scroll.",
+            ),
+
         "control_mouse":
             PoliticaAutonomia(
                 "control_mouse",
                 NivelAutonomia.CONFIRMACION,
                 2,
-                "Mouse requiere política GUI.",
+                "Compatibilidad con política GUI general.",
+            ),
+
+        "escribir_teclado":
+            PoliticaAutonomia(
+                "escribir_teclado",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Escribir mediante teclado puede producir efectos externos.",
+            ),
+
+        "pulsar_tecla":
+            PoliticaAutonomia(
+                "pulsar_tecla",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Una tecla puede ejecutar acciones en la aplicación activa.",
+            ),
+
+        "combinacion_teclas":
+            PoliticaAutonomia(
+                "combinacion_teclas",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Una combinación puede guardar, cerrar o modificar contenido.",
+            ),
+
+        "escribir_en_ventana":
+            PoliticaAutonomia(
+                "escribir_en_ventana",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Escribir dentro de una aplicación requiere confirmación.",
+            ),
+
+        "combinacion_teclas_ventana":
+            PoliticaAutonomia(
+                "combinacion_teclas_ventana",
+                NivelAutonomia.CONFIRMACION,
+                2,
+                "Enviar teclas a una ventana requiere confirmación.",
             ),
 
         "escribir_aplicacion":
@@ -240,7 +336,7 @@ class GestorPresupuestoAutonomia:
                 "escribir_aplicacion",
                 NivelAutonomia.CONFIRMACION,
                 2,
-                "Escritura GUI requiere confirmación.",
+                "Compatibilidad con política GUI general.",
             ),
 
         "enviar_mensaje":

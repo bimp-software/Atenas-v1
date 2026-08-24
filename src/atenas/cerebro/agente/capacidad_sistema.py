@@ -228,6 +228,200 @@ class CapacidadSistema:
         if not t:
             return None
 
+
+
+        # -----------------------------------------------------
+        # TECLADO
+        # -----------------------------------------------------
+
+        if any(
+            frase in t
+            for frase in (
+                "presiona enter",
+                "pulsa enter",
+                "presiona escape",
+                "pulsa escape",
+                "presiona tab",
+                "pulsa tab",
+            )
+        ):
+
+            tecla = None
+
+            if "enter" in t:
+                tecla = "enter"
+
+            elif (
+                "escape" in t
+                or "esc" in t
+            ):
+                tecla = "esc"
+
+            elif "tab" in t:
+                tecla = "tab"
+
+            if tecla:
+
+                return AccionSistema(
+                    tipo=(
+                        TipoAccionSistema
+                        .PULSAR_TECLA
+                    ),
+                    argumentos={
+                        "tecla":
+                            tecla
+                    },
+                )
+
+        combinaciones = {
+            "ctrl+s": [
+                "ctrl",
+                "s",
+            ],
+            "control+s": [
+                "ctrl",
+                "s",
+            ],
+            "ctrl+c": [
+                "ctrl",
+                "c",
+            ],
+            "ctrl+v": [
+                "ctrl",
+                "v",
+            ],
+            "ctrl+x": [
+                "ctrl",
+                "x",
+            ],
+            "ctrl+z": [
+                "ctrl",
+                "z",
+            ],
+            "alt+tab": [
+                "alt",
+                "tab",
+            ],
+        }
+
+        for patron, teclas in (
+            combinaciones.items()
+        ):
+
+            if patron in t:
+
+                return AccionSistema(
+                    tipo=(
+                        TipoAccionSistema
+                        .COMBINACION_TECLAS
+                    ),
+                    argumentos={
+                        "teclas":
+                            teclas
+                    },
+                )
+
+        # -----------------------------------------------------
+        # MOUSE
+        # -----------------------------------------------------
+
+        if any(
+            frase in t
+            for frase in (
+                "posición del mouse",
+                "posicion del mouse",
+                "dónde está el mouse",
+                "donde esta el mouse",
+                "posición del cursor",
+                "posicion del cursor",
+            )
+        ):
+
+            return AccionSistema(
+                tipo=(
+                    TipoAccionSistema
+                    .POSICION_MOUSE
+                )
+            )
+
+        m = re.search(
+            r"(?:mueve|mover)\s+(?:el\s+)?(?:mouse|cursor)\s+(?:a\s+)?(?:x\s*=\s*)?(-?\d+)\s*[,; ]+\s*(?:y\s*=\s*)?(-?\d+)",
+            original,
+            flags=re.IGNORECASE,
+        )
+
+        if m:
+
+            return AccionSistema(
+                tipo=(
+                    TipoAccionSistema
+                    .MOVER_MOUSE
+                ),
+                argumentos={
+                    "x":
+                        int(
+                            m.group(1)
+                        ),
+
+                    "y":
+                        int(
+                            m.group(2)
+                        ),
+                },
+            )
+
+        if (
+            "scroll" in t
+            or "desplaza" in t
+            or "desplazar" in t
+        ):
+
+            pasos = 0
+
+            numero = re.search(
+                r"(-?\d+)",
+                t,
+            )
+
+            if numero:
+
+                pasos = int(
+                    numero.group(1)
+                )
+
+            elif any(
+                palabra in t
+                for palabra in (
+                    "abajo",
+                    "baja",
+                )
+            ):
+
+                pasos = -3
+
+            elif any(
+                palabra in t
+                for palabra in (
+                    "arriba",
+                    "sube",
+                )
+            ):
+
+                pasos = 3
+
+            if pasos != 0:
+
+                return AccionSistema(
+                    tipo=(
+                        TipoAccionSistema
+                        .SCROLL_MOUSE
+                    ),
+                    argumentos={
+                        "pasos":
+                            pasos
+                    },
+                )
+
         # -----------------------------------------------------
         # VENTANAS
         # -----------------------------------------------------

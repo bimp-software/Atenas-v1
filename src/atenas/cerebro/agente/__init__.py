@@ -19,6 +19,19 @@ from .gestor_ventanas import (
     GestorVentanas,
 )
 
+from .controlador_mouse import (
+    BotonMouse,
+    PosicionMouse,
+    ResultadoMouse,
+    ControladorMouse,
+)
+
+from .controlador_teclado import (
+    TeclaEspecial,
+    ResultadoTeclado,
+    ControladorTeclado,
+)
+
 from .ejecutor_sistema import (
     TipoAccionSistema,
     AccionSistema,
@@ -130,6 +143,15 @@ __all__ = [
     "VentanaSistema",
     "ResultadoVentanas",
     "GestorVentanas",
+
+    "BotonMouse",
+    "PosicionMouse",
+    "ResultadoMouse",
+    "ControladorMouse",
+
+    "TeclaEspecial",
+    "ResultadoTeclado",
+    "ControladorTeclado",
 
     "TipoAccionSistema",
     "AccionSistema",

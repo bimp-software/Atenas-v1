@@ -16,6 +16,15 @@ from .gestor_ventanas import (
     GestorVentanas,
 )
 
+from .controlador_mouse import (
+    BotonMouse,
+    ControladorMouse,
+)
+
+from .controlador_teclado import (
+    ControladorTeclado,
+)
+
 
 class TipoAccionSistema(str, Enum):
     LEER_TEXTO = "leer_texto"
@@ -34,6 +43,20 @@ class TipoAccionSistema(str, Enum):
     MINIMIZAR_VENTANA = "minimizar_ventana"
     MAXIMIZAR_VENTANA = "maximizar_ventana"
     RESTAURAR_VENTANA = "restaurar_ventana"
+
+    POSICION_MOUSE = "posicion_mouse"
+    MOVER_MOUSE = "mover_mouse"
+    MOVER_MOUSE_VENTANA = "mover_mouse_ventana"
+    CLICK_MOUSE = "click_mouse"
+    DOBLE_CLICK_MOUSE = "doble_click_mouse"
+    CLICK_MOUSE_VENTANA = "click_mouse_ventana"
+    SCROLL_MOUSE = "scroll_mouse"
+
+    ESCRIBIR_TECLADO = "escribir_teclado"
+    PULSAR_TECLA = "pulsar_tecla"
+    COMBINACION_TECLAS = "combinacion_teclas"
+    ESCRIBIR_EN_VENTANA = "escribir_en_ventana"
+    COMBINACION_TECLAS_VENTANA = "combinacion_teclas_ventana"
 
 
 @dataclass
@@ -79,6 +102,14 @@ class EjecutorSistema:
             GestorVentanas
             | None
         ) = None,
+        controlador_mouse: (
+            ControladorMouse
+            | None
+        ) = None,
+        controlador_teclado: (
+            ControladorTeclado
+            | None
+        ) = None,
     ):
 
         if raices_escritura is None:
@@ -115,6 +146,24 @@ class EjecutorSistema:
         self.gestor_ventanas = (
             gestor_ventanas
             or GestorVentanas()
+        )
+
+        self.controlador_mouse = (
+            controlador_mouse
+            or ControladorMouse(
+                gestor_ventanas=(
+                    self.gestor_ventanas
+                )
+            )
+        )
+
+        self.controlador_teclado = (
+            controlador_teclado
+            or ControladorTeclado(
+                gestor_ventanas=(
+                    self.gestor_ventanas
+                )
+            )
         )
 
     # =========================================================
@@ -984,6 +1033,400 @@ class EjecutorSistema:
             datos=datos,
         )
 
+
+    # =========================================================
+    # MOUSE
+    # =========================================================
+
+    def posicion_mouse(
+        self,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.controlador_mouse
+            .posicion()
+        )
+
+        datos = {}
+
+        if resultado.posicion:
+
+            datos["posicion"] = {
+                "x":
+                    resultado.posicion.x,
+
+                "y":
+                    resultado.posicion.y,
+            }
+
+        if resultado.datos:
+
+            datos.update(
+                resultado.datos
+            )
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=datos,
+            error=resultado.error,
+        )
+
+    def mover_mouse(
+        self,
+        x: int,
+        y: int,
+        duracion: float = 0.0,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.controlador_mouse
+            .mover(
+                x=x,
+                y=y,
+                duracion=duracion,
+            )
+        )
+
+        datos = {}
+
+        if resultado.posicion:
+
+            datos["posicion"] = {
+                "x":
+                    resultado.posicion.x,
+
+                "y":
+                    resultado.posicion.y,
+            }
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=datos,
+            error=resultado.error,
+        )
+
+    def mover_mouse_ventana(
+        self,
+        titulo: str,
+        x_relativo: float,
+        y_relativo: float,
+        duracion: float = 0.15,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.controlador_mouse
+            .mover_relativo_ventana(
+                titulo=titulo,
+                x_relativo=x_relativo,
+                y_relativo=y_relativo,
+                duracion=duracion,
+            )
+        )
+
+        datos = (
+            dict(
+                resultado.datos
+                or {}
+            )
+        )
+
+        if resultado.posicion:
+
+            datos["posicion"] = {
+                "x":
+                    resultado.posicion.x,
+
+                "y":
+                    resultado.posicion.y,
+            }
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=datos,
+            error=resultado.error,
+        )
+
+    def click_mouse(
+        self,
+        boton: str = "izquierdo",
+        doble: bool = False,
+    ) -> ResultadoAccionSistema:
+
+        try:
+
+            boton_enum = BotonMouse(
+                boton
+            )
+
+        except ValueError:
+
+            return ResultadoAccionSistema(
+                ok=False,
+                accion="click_mouse",
+                error="boton_mouse_invalido",
+            )
+
+        if doble:
+
+            resultado = (
+                self.controlador_mouse
+                .doble_click(
+                    boton=boton_enum
+                )
+            )
+
+        else:
+
+            resultado = (
+                self.controlador_mouse
+                .click(
+                    boton=boton_enum
+                )
+            )
+
+        datos = (
+            dict(
+                resultado.datos
+                or {}
+            )
+        )
+
+        if resultado.posicion:
+
+            datos["posicion"] = {
+                "x":
+                    resultado.posicion.x,
+
+                "y":
+                    resultado.posicion.y,
+            }
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=datos,
+            error=resultado.error,
+        )
+
+    def click_mouse_ventana(
+        self,
+        titulo: str,
+        x_relativo: float,
+        y_relativo: float,
+        boton: str = "izquierdo",
+        doble: bool = False,
+    ) -> ResultadoAccionSistema:
+
+        try:
+
+            boton_enum = BotonMouse(
+                boton
+            )
+
+        except ValueError:
+
+            return ResultadoAccionSistema(
+                ok=False,
+                accion="click_mouse_ventana",
+                error="boton_mouse_invalido",
+            )
+
+        resultado = (
+            self.controlador_mouse
+            .click_relativo_ventana(
+                titulo=titulo,
+                x_relativo=x_relativo,
+                y_relativo=y_relativo,
+                boton=boton_enum,
+                doble=doble,
+            )
+        )
+
+        datos = (
+            dict(
+                resultado.datos
+                or {}
+            )
+        )
+
+        if resultado.posicion:
+
+            datos["posicion"] = {
+                "x":
+                    resultado.posicion.x,
+
+                "y":
+                    resultado.posicion.y,
+            }
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=datos,
+            error=resultado.error,
+        )
+
+    def scroll_mouse(
+        self,
+        pasos: int,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.controlador_mouse
+            .scroll(
+                pasos=pasos
+            )
+        )
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=(
+                resultado.datos
+                or {}
+            ),
+            error=resultado.error,
+        )
+
+
+    # =========================================================
+    # TECLADO
+    # =========================================================
+
+    def escribir_teclado(
+        self,
+        texto: str,
+        intervalo: float = 0.0,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.controlador_teclado
+            .escribir_texto(
+                texto=texto,
+                intervalo=intervalo,
+            )
+        )
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=(
+                resultado.datos
+                or {}
+            ),
+            error=resultado.error,
+        )
+
+    def pulsar_tecla(
+        self,
+        tecla: str,
+        repeticiones: int = 1,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.controlador_teclado
+            .pulsar(
+                tecla=tecla,
+                repeticiones=repeticiones,
+            )
+        )
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=(
+                resultado.datos
+                or {}
+            ),
+            error=resultado.error,
+        )
+
+    def combinacion_teclas(
+        self,
+        teclas: list[str],
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.controlador_teclado
+            .combinacion(
+                teclas=teclas
+            )
+        )
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=(
+                resultado.datos
+                or {}
+            ),
+            error=resultado.error,
+        )
+
+    def escribir_en_ventana(
+        self,
+        titulo: str,
+        texto: str,
+        intervalo: float = 0.0,
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.controlador_teclado
+            .escribir_en_ventana(
+                titulo=titulo,
+                texto=texto,
+                intervalo=intervalo,
+            )
+        )
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=(
+                resultado.datos
+                or {}
+            ),
+            error=resultado.error,
+        )
+
+    def combinacion_teclas_ventana(
+        self,
+        titulo: str,
+        teclas: list[str],
+    ) -> ResultadoAccionSistema:
+
+        resultado = (
+            self.controlador_teclado
+            .combinacion_en_ventana(
+                titulo=titulo,
+                teclas=teclas,
+            )
+        )
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion=resultado.accion,
+            mensaje=resultado.mensaje,
+            datos=(
+                resultado.datos
+                or {}
+            ),
+            error=resultado.error,
+        )
+
     # =========================================================
     # DESPACHO
     # =========================================================
@@ -1124,6 +1567,201 @@ class EjecutorSistema:
                 ),
             )
 
+
+        if tipo == TipoAccionSistema.POSICION_MOUSE:
+
+            return self.posicion_mouse()
+
+        if tipo == TipoAccionSistema.MOVER_MOUSE:
+
+            return self.mover_mouse(
+                x=int(
+                    args["x"]
+                ),
+                y=int(
+                    args["y"]
+                ),
+                duracion=float(
+                    args.get(
+                        "duracion",
+                        0.0,
+                    )
+                ),
+            )
+
+        if tipo == TipoAccionSistema.MOVER_MOUSE_VENTANA:
+
+            return self.mover_mouse_ventana(
+                titulo=str(
+                    args["titulo"]
+                ),
+                x_relativo=float(
+                    args["x_relativo"]
+                ),
+                y_relativo=float(
+                    args["y_relativo"]
+                ),
+                duracion=float(
+                    args.get(
+                        "duracion",
+                        0.15,
+                    )
+                ),
+            )
+
+        if tipo == TipoAccionSistema.CLICK_MOUSE:
+
+            return self.click_mouse(
+                boton=str(
+                    args.get(
+                        "boton",
+                        "izquierdo",
+                    )
+                ),
+                doble=bool(
+                    args.get(
+                        "doble",
+                        False,
+                    )
+                ),
+            )
+
+        if tipo == TipoAccionSistema.DOBLE_CLICK_MOUSE:
+
+            return self.click_mouse(
+                boton=str(
+                    args.get(
+                        "boton",
+                        "izquierdo",
+                    )
+                ),
+                doble=True,
+            )
+
+        if tipo == TipoAccionSistema.CLICK_MOUSE_VENTANA:
+
+            return self.click_mouse_ventana(
+                titulo=str(
+                    args["titulo"]
+                ),
+                x_relativo=float(
+                    args["x_relativo"]
+                ),
+                y_relativo=float(
+                    args["y_relativo"]
+                ),
+                boton=str(
+                    args.get(
+                        "boton",
+                        "izquierdo",
+                    )
+                ),
+                doble=bool(
+                    args.get(
+                        "doble",
+                        False,
+                    )
+                ),
+            )
+
+        if tipo == TipoAccionSistema.SCROLL_MOUSE:
+
+            return self.scroll_mouse(
+                pasos=int(
+                    args.get(
+                        "pasos",
+                        0,
+                    )
+                )
+            )
+
+
+        if tipo == TipoAccionSistema.ESCRIBIR_TECLADO:
+
+            return self.escribir_teclado(
+                texto=str(
+                    args.get(
+                        "texto",
+                        "",
+                    )
+                ),
+                intervalo=float(
+                    args.get(
+                        "intervalo",
+                        0.0,
+                    )
+                ),
+            )
+
+        if tipo == TipoAccionSistema.PULSAR_TECLA:
+
+            return self.pulsar_tecla(
+                tecla=str(
+                    args["tecla"]
+                ),
+                repeticiones=int(
+                    args.get(
+                        "repeticiones",
+                        1,
+                    )
+                ),
+            )
+
+        if tipo == TipoAccionSistema.COMBINACION_TECLAS:
+
+            return self.combinacion_teclas(
+                teclas=[
+                    str(item)
+                    for item
+                    in (
+                        args.get(
+                            "teclas",
+                            [],
+                        )
+                        or []
+                    )
+                ]
+            )
+
+        if tipo == TipoAccionSistema.ESCRIBIR_EN_VENTANA:
+
+            return self.escribir_en_ventana(
+                titulo=str(
+                    args["titulo"]
+                ),
+                texto=str(
+                    args.get(
+                        "texto",
+                        "",
+                    )
+                ),
+                intervalo=float(
+                    args.get(
+                        "intervalo",
+                        0.0,
+                    )
+                ),
+            )
+
+        if tipo == TipoAccionSistema.COMBINACION_TECLAS_VENTANA:
+
+            return self.combinacion_teclas_ventana(
+                titulo=str(
+                    args["titulo"]
+                ),
+                teclas=[
+                    str(item)
+                    for item
+                    in (
+                        args.get(
+                            "teclas",
+                            [],
+                        )
+                        or []
+                    )
+                ],
+            )
+
         return ResultadoAccionSistema(
             ok=False,
             accion=str(
@@ -1156,4 +1794,10 @@ class EjecutorSistema:
 
             "gestor_ventanas":
                 self.gestor_ventanas.disponible,
+
+            "controlador_mouse":
+                self.controlador_mouse.disponible,
+
+            "controlador_teclado":
+                self.controlador_teclado.disponible,
         }
