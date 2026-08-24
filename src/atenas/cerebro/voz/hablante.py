@@ -7,9 +7,7 @@ from typing import Optional
 
 from .motor_voz import MotorVoz
 
-
 logger = logging.getLogger(__name__)
-
 
 class Hablante:
     _FIN = object()
