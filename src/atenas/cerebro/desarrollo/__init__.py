@@ -218,6 +218,34 @@ from .ejecutor_plan_software import (
     EjecutorPlanSoftware,
 )
 
+from .validador_tarea_software import (
+    ResultadoComandoValidacion,
+    ResultadoValidacionTarea,
+    ValidadorTareaSoftware,
+)
+
+from .reparador_tarea_software import (
+    IntentoReparacion,
+    ResultadoReparacionTarea,
+    ReparadorTareaSoftware,
+)
+
+from .gestor_entornos_proyecto import (
+    TipoEntorno,
+    RuntimeDetectado,
+    DependenciaProyecto,
+    PlanEntornoProyecto,
+    ResultadoPreparacionEntorno,
+    GestorEntornosProyecto,
+)
+
+from .gestor_seguro_dependencias import (
+    RiesgoDependencia,
+    EvaluacionDependencia,
+    ResultadoInstalacionDependencia,
+    GestorSeguroDependencias,
+)
+
 __all__ = [
     "NivelRiesgo",
     "ResultadoPolitica",
@@ -361,4 +389,24 @@ __all__ = [
     "ProgramadorTareaSoftware",
     "ResultadoEjecucionPlan",
     "EjecutorPlanSoftware",
+
+    "ResultadoComandoValidacion",
+    "ResultadoValidacionTarea",
+    "ValidadorTareaSoftware",
+
+    "IntentoReparacion",
+    "ResultadoReparacionTarea",
+    "ReparadorTareaSoftware",
+
+    "TipoEntorno",
+    "RuntimeDetectado",
+    "DependenciaProyecto",
+    "PlanEntornoProyecto",
+    "ResultadoPreparacionEntorno",
+    "GestorEntornosProyecto",
+
+    "RiesgoDependencia",
+    "EvaluacionDependencia",
+    "ResultadoInstalacionDependencia",
+    "GestorSeguroDependencias",
 ]

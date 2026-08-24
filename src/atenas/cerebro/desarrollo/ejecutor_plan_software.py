@@ -4,7 +4,6 @@ import json
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
 
 from .analista_requisitos import (
     AnalisisRequisitos,
@@ -30,17 +29,36 @@ from .programador_tarea_software import (
     ResultadoProgramacionTarea,
 )
 
+from .validador_tarea_software import (
+    ResultadoValidacionTarea,
+    ValidadorTareaSoftware,
+)
+
+from .reparador_tarea_software import (
+    ReparadorTareaSoftware,
+    ResultadoReparacionTarea,
+)
+
 
 @dataclass
 class ResultadoEjecucionPlan:
     ok: bool
-
     estado: str
 
     tarea: TareaSoftware | None = None
 
     resultado_tarea: (
         ResultadoProgramacionTarea
+        | None
+    ) = None
+
+    validacion: (
+        ResultadoValidacionTarea
+        | None
+    ) = None
+
+    reparacion: (
+        ResultadoReparacionTarea
         | None
     ) = None
 
@@ -53,31 +71,40 @@ class ResultadoEjecucionPlan:
 
 class EjecutorPlanSoftware:
     """
-    Motor que permite a ATENAS desarrollar un sistema completo
-    de forma progresiva.
+    Ejecuta una tarea por ciclo:
 
-    En cada iteración:
-    1. encuentra la siguiente tarea desbloqueada;
-    2. la marca EN_PROGRESO;
-    3. llama al programador incremental;
-    4. persiste el estado;
-    5. la completa o marca FALLIDA;
-    6. deja que el siguiente ciclo continúe con otra tarea.
+      elegir
+      -> programar
+      -> validar
+      -> si falla, reparar
+      -> volver a validar
+      -> completar/fallar
+      -> persistir
 
-    No ejecuta todas las tareas en un solo ciclo.
+    La reparación está limitada a un número finito de intentos.
     """
 
     def __init__(
         self,
         programador: ProgramadorTareaSoftware,
+        validador: ValidadorTareaSoftware | None = None,
+        reparador: ReparadorTareaSoftware | None = None,
     ):
-        self.programador = (
-            programador
+        self.programador = programador
+
+        self.validador = (
+            validador
+            or ValidadorTareaSoftware()
         )
 
-    # =========================================================
-    # PERSISTENCIA
-    # =========================================================
+        self.reparador = (
+            reparador
+            or ReparadorTareaSoftware(
+                llm=programador.llm,
+                validador=self.validador,
+                max_intentos=3,
+            )
+        )
 
     @staticmethod
     def _persistir_plan(
@@ -98,19 +125,13 @@ class EjecutorPlanSoftware:
 
         ruta.write_text(
             json.dumps(
-                asdict(
-                    plan
-                ),
+                asdict(plan),
                 ensure_ascii=False,
                 indent=2,
                 default=str,
             ),
             encoding="utf-8",
         )
-
-    # =========================================================
-    # CONTEXTO
-    # =========================================================
 
     @staticmethod
     def _contexto(
@@ -122,19 +143,13 @@ class EjecutorPlanSoftware:
 
         return {
             "analisis":
-                asdict(
-                    analisis
-                ),
+                asdict(analisis),
 
             "arquitectura":
-                asdict(
-                    arquitectura
-                ),
+                asdict(arquitectura),
 
             "base_datos": (
-                asdict(
-                    modelo_bd
-                )
+                asdict(modelo_bd)
                 if modelo_bd is not None
                 else None
             ),
@@ -157,10 +172,6 @@ class EjecutorPlanSoftware:
             },
         }
 
-    # =========================================================
-    # ESTADO GLOBAL
-    # =========================================================
-
     @staticmethod
     def plan_terminado(
         plan: PlanSistemaSoftware,
@@ -168,9 +179,7 @@ class EjecutorPlanSoftware:
 
         tareas = (
             PlanificadorSistemaSoftware
-            .todas_las_tareas(
-                plan
-            )
+            .todas_las_tareas(plan)
         )
 
         return bool(
@@ -183,10 +192,6 @@ class EjecutorPlanSoftware:
             )
         )
 
-    # =========================================================
-    # EJECUTAR UNA SOLA TAREA
-    # =========================================================
-
     def ejecutar_siguiente(
         self,
         carpeta_proyecto: str | Path,
@@ -196,9 +201,7 @@ class EjecutorPlanSoftware:
         plan: PlanSistemaSoftware,
     ) -> ResultadoEjecucionPlan:
 
-        if self.plan_terminado(
-            plan
-        ):
+        if self.plan_terminado(plan):
 
             return ResultadoEjecucionPlan(
                 ok=True,
@@ -212,9 +215,7 @@ class EjecutorPlanSoftware:
 
         tarea = (
             PlanificadorSistemaSoftware
-            .siguiente_tarea(
-                plan
-            )
+            .siguiente_tarea(plan)
         )
 
         if tarea is None:
@@ -223,9 +224,7 @@ class EjecutorPlanSoftware:
                 ok=False,
                 estado="sin_tarea_ejecutable",
                 mensaje=(
-                    "No existe una tarea desbloqueada. "
-                    "Puede haber dependencias pendientes "
-                    "o tareas fallidas."
+                    "No existe una tarea desbloqueada."
                 ),
                 error="sin_tarea_ejecutable",
             )
@@ -234,20 +233,9 @@ class EjecutorPlanSoftware:
             EstadoTarea.EN_PROGRESO
         )
 
-        self._persistir_plan(
-            plan
-        )
+        self._persistir_plan(plan)
 
-        contexto = (
-            self._contexto(
-                analisis=analisis,
-                arquitectura=arquitectura,
-                modelo_bd=modelo_bd,
-                plan=plan,
-            )
-        )
-
-        resultado = (
+        resultado_programacion = (
             self.programador
             .programar(
                 carpeta_proyecto=(
@@ -255,23 +243,98 @@ class EjecutorPlanSoftware:
                 ),
                 tarea=tarea,
                 contexto_sistema=(
-                    contexto
+                    self._contexto(
+                        analisis=analisis,
+                        arquitectura=arquitectura,
+                        modelo_bd=modelo_bd,
+                        plan=plan,
+                    )
                 ),
             )
         )
 
         if (
-            resultado.ok
-            and resultado.completado
+            not resultado_programacion.ok
+            or not resultado_programacion.completado
         ):
+
+            tarea.estado = (
+                EstadoTarea.FALLIDA
+            )
+
+            self._persistir_plan(plan)
+
+            return ResultadoEjecucionPlan(
+                ok=False,
+                estado="tarea_fallida_programacion",
+                tarea=tarea,
+                resultado_tarea=(
+                    resultado_programacion
+                ),
+                mensaje=(
+                    resultado_programacion.resumen
+                ),
+                error=(
+                    resultado_programacion.error
+                ),
+            )
+
+        validacion = (
+            self.validador
+            .validar(
+                carpeta_proyecto=(
+                    carpeta_proyecto
+                ),
+                ejecutar_pruebas=(
+                    tarea.requiere_pruebas
+                ),
+            )
+        )
+
+        reparacion = None
+
+        if not validacion.ok:
+
+            reparacion = (
+                self.reparador
+                .reparar(
+                    carpeta_proyecto=(
+                        carpeta_proyecto
+                    ),
+                    tarea=tarea,
+                    validacion_inicial=(
+                        validacion
+                    ),
+                    ejecutar_pruebas=(
+                        tarea.requiere_pruebas
+                    ),
+                )
+            )
+
+            if (
+                reparacion.ok
+                and reparacion.validacion_final
+                is not None
+            ):
+
+                validacion = (
+                    reparacion
+                    .validacion_final
+                )
+
+        if validacion.ok:
 
             tarea.estado = (
                 EstadoTarea.COMPLETADA
             )
 
             estado = (
-                "tarea_completada"
+                "tarea_reparada_completada"
+                if reparacion is not None
+                else "tarea_completada"
             )
+
+            ok = True
 
         else:
 
@@ -280,32 +343,40 @@ class EjecutorPlanSoftware:
             )
 
             estado = (
-                "tarea_fallida"
+                "tarea_fallida_validacion"
             )
 
-        self._persistir_plan(
-            plan
-        )
+            ok = False
 
-        terminado = (
-            self.plan_terminado(
-                plan
-            )
-        )
+        self._persistir_plan(plan)
 
         return ResultadoEjecucionPlan(
-            ok=bool(
-                resultado.ok
-                and resultado.completado
-            ),
+            ok=ok,
             estado=estado,
             tarea=tarea,
-            resultado_tarea=resultado,
-            plan_completado=terminado,
+            resultado_tarea=(
+                resultado_programacion
+            ),
+            validacion=validacion,
+            reparacion=reparacion,
+            plan_completado=(
+                self.plan_terminado(plan)
+            ),
             mensaje=(
-                resultado.resumen
+                (
+                    reparacion.resumen
+                    if (
+                        reparacion is not None
+                        and reparacion.ok
+                    )
+                    else validacion.resumen
+                )
             ),
             error=(
-                resultado.error
+                None
+                if validacion.ok
+                else "\n".join(
+                    validacion.errores
+                )[:5000]
             ),
         )
