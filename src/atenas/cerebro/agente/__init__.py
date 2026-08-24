@@ -44,6 +44,48 @@ from .percepcion_visual import (
     PercepcionVisual,
 )
 
+from .interpretador_visual import (
+    ElementoVisual,
+    InterpretacionVisual,
+    ResultadoInterpretacionVisual,
+    InterpretadorVisual,
+)
+
+from .adaptador_vision_ollama import (
+    EstadoVisionOllama,
+    AdaptadorVisionOllama,
+)
+
+from .objetivo_visual import (
+    TipoObjetivoVisual,
+    ObjetivoVisual,
+    ResultadoObjetivoVisual,
+    ResolutorObjetivoVisual,
+)
+
+from .accion_gui import (
+    TipoAccionGUI,
+    AccionGUIPlanificada,
+    ResultadoPlanGUI,
+    PlanificadorGUI,
+)
+
+from .ejecutor_gui import (
+    ResultadoEjecucionGUI,
+    EjecutorGUI,
+)
+
+from .verificador_visual import (
+    CriterioVerificacionVisual,
+    ResultadoVerificacionVisual,
+    VerificadorVisual,
+)
+
+from .ciclo_accion_gui import (
+    ResultadoCicloGUI,
+    CicloAccionGUI,
+)
+
 from .ejecutor_sistema import (
     TipoAccionSistema,
     AccionSistema,
@@ -172,6 +214,34 @@ __all__ = [
     "EstadoVisual",
     "ResultadoPercepcionVisual",
     "PercepcionVisual",
+
+    "ElementoVisual",
+    "InterpretacionVisual",
+    "ResultadoInterpretacionVisual",
+    "InterpretadorVisual",
+
+    "EstadoVisionOllama",
+    "AdaptadorVisionOllama",
+
+    "TipoObjetivoVisual",
+    "ObjetivoVisual",
+    "ResultadoObjetivoVisual",
+    "ResolutorObjetivoVisual",
+
+    "TipoAccionGUI",
+    "AccionGUIPlanificada",
+    "ResultadoPlanGUI",
+    "PlanificadorGUI",
+
+    "ResultadoEjecucionGUI",
+    "EjecutorGUI",
+
+    "CriterioVerificacionVisual",
+    "ResultadoVerificacionVisual",
+    "VerificadorVisual",
+
+    "ResultadoCicloGUI",
+    "CicloAccionGUI",
 
     "TipoAccionSistema",
     "AccionSistema",

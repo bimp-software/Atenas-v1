@@ -243,6 +243,22 @@ class GestorPresupuestoAutonomia:
                 "Construir una escena visual local del escritorio.",
             ),
 
+        "interpretar_escena":
+            PoliticaAutonomia(
+                "interpretar_escena",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Interpretar semánticamente una escena visual local.",
+            ),
+
+        "verificar_resultado_visual":
+            PoliticaAutonomia(
+                "verificar_resultado_visual",
+                NivelAutonomia.LIBRE,
+                0,
+                "Verificar visualmente el resultado de una acción.",
+            ),
+
         # Confirmación
         "instalar_dependencia":
             PoliticaAutonomia(

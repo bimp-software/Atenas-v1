@@ -257,6 +257,40 @@ class CapacidadSistema:
                 },
             )
 
+        if any(
+            frase in t
+            for frase in (
+                "estado del modelo visual",
+                "estado de visión",
+                "estado de vision",
+                "modelo visual disponible",
+            )
+        ):
+
+            return AccionSistema(
+                tipo=(
+                    TipoAccionSistema
+                    .ESTADO_VISION
+                )
+            )
+
+        if any(
+            frase in t
+            for frase in (
+                "interpreta la pantalla",
+                "interpreta lo que ves",
+                "analiza visualmente la pantalla",
+                "entiende la pantalla",
+            )
+        ):
+
+            return AccionSistema(
+                tipo=TipoAccionSistema.INTERPRETAR_ESCENA,
+                argumentos={
+                    "usar_modelo_vision": True
+                },
+            )
+
         # -----------------------------------------------------
         # CAPTURA / PANTALLA
         # -----------------------------------------------------

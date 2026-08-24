@@ -33,6 +33,26 @@ from .percepcion_visual import (
     PercepcionVisual,
 )
 
+from .interpretador_visual import (
+    InterpretadorVisual,
+)
+
+from .adaptador_vision_ollama import (
+    AdaptadorVisionOllama,
+)
+
+from .ejecutor_gui import (
+    EjecutorGUI,
+)
+
+from .verificador_visual import (
+    VerificadorVisual,
+)
+
+from .ciclo_accion_gui import (
+    CicloAccionGUI,
+)
+
 
 class TipoAccionSistema(str, Enum):
     LEER_TEXTO = "leer_texto"
@@ -70,6 +90,8 @@ class TipoAccionSistema(str, Enum):
     CAPTURAR_VENTANA = "capturar_ventana"
     LISTAR_CAPTURAS = "listar_capturas"
     CONSTRUIR_ESTADO_VISUAL = "construir_estado_visual"
+    INTERPRETAR_ESCENA = "interpretar_escena"
+    ESTADO_VISION = "estado_vision"
 
 
 @dataclass
@@ -129,6 +151,14 @@ class EjecutorSistema:
         ) = None,
         percepcion_visual: (
             PercepcionVisual
+            | None
+        ) = None,
+        interpretador_visual: (
+            InterpretadorVisual
+            | None
+        ) = None,
+        vision_ollama: (
+            AdaptadorVisionOllama
             | None
         ) = None,
     ):
@@ -207,6 +237,52 @@ class EjecutorSistema:
                 ),
                 controlador_mouse=(
                     self.controlador_mouse
+                ),
+            )
+        )
+
+        self.vision_ollama = (
+            vision_ollama
+            or AdaptadorVisionOllama()
+        )
+
+        self.interpretador_visual = (
+            interpretador_visual
+            or InterpretadorVisual(
+                vision=(
+                    self.vision_ollama
+                )
+            )
+        )
+
+        self.ejecutor_gui = (
+            EjecutorGUI(
+                mouse=(
+                    self.controlador_mouse
+                ),
+                teclado=(
+                    self.controlador_teclado
+                ),
+            )
+        )
+
+        self.verificador_visual = (
+            VerificadorVisual()
+        )
+
+        self.ciclo_accion_gui = (
+            CicloAccionGUI(
+                ejecutor_gui=(
+                    self.ejecutor_gui
+                ),
+                percepcion_visual=(
+                    self.percepcion_visual
+                ),
+                interpretador_visual=(
+                    self.interpretador_visual
+                ),
+                verificador_visual=(
+                    self.verificador_visual
                 ),
             )
         )
@@ -1692,6 +1768,102 @@ class EjecutorSistema:
             },
         )
 
+
+    def interpretar_escena(
+        self,
+        usar_modelo_vision: bool = True,
+    ) -> ResultadoAccionSistema:
+
+        resultado_estado = self.percepcion_visual.construir_estado(
+            capturar=True
+        )
+
+        if (
+            not resultado_estado.ok
+            or resultado_estado.estado is None
+        ):
+            return ResultadoAccionSistema(
+                ok=False,
+                accion="interpretar_escena",
+                error=(
+                    resultado_estado.error
+                    or "estado_visual_no_disponible"
+                ),
+            )
+
+        resultado = self.interpretador_visual.interpretar(
+            estado=resultado_estado.estado,
+            usar_modelo_vision=usar_modelo_vision,
+        )
+
+        if resultado.interpretacion is None:
+            return ResultadoAccionSistema(
+                ok=False,
+                accion="interpretar_escena",
+                error=(
+                    resultado.error
+                    or "interpretacion_no_disponible"
+                ),
+                mensaje=resultado.mensaje,
+            )
+
+        i = resultado.interpretacion
+
+        return ResultadoAccionSistema(
+            ok=resultado.ok,
+            accion="interpretar_escena",
+            mensaje=i.resumen,
+            datos={
+                "contexto_aplicacion": i.contexto_aplicacion,
+                "confianza_global": i.confianza_global,
+                "observaciones": i.observaciones,
+                "riesgos": i.riesgos,
+                "elementos": [
+                    {
+                        "tipo": e.tipo,
+                        "descripcion": e.descripcion,
+                        "confianza": e.confianza,
+                        "x_relativo": e.x_relativo,
+                        "y_relativo": e.y_relativo,
+                        "ancho_relativo": e.ancho_relativo,
+                        "alto_relativo": e.alto_relativo,
+                        "texto": e.texto,
+                        "accion_sugerida": e.accion_sugerida,
+                        "metadata": e.metadata,
+                    }
+                    for e in i.elementos
+                ],
+            },
+            error=resultado.error,
+        )
+
+
+    def estado_vision(
+        self,
+    ) -> ResultadoAccionSistema:
+
+        estado = (
+            self.vision_ollama
+            .estado()
+        )
+
+        return ResultadoAccionSistema(
+            ok=estado.disponible,
+            accion="estado_vision",
+            mensaje=estado.mensaje,
+            datos={
+                "disponible":
+                    estado.disponible,
+
+                "servidor":
+                    estado.servidor,
+
+                "modelo":
+                    estado.modelo,
+            },
+            error=estado.error,
+        )
+
     # =========================================================
     # DESPACHO
     # =========================================================
@@ -2070,6 +2242,18 @@ class EjecutorSistema:
                 )
             )
 
+        if tipo == TipoAccionSistema.INTERPRETAR_ESCENA:
+
+            return self.interpretar_escena(
+                usar_modelo_vision=bool(
+                    args.get("usar_modelo_vision", True)
+                )
+            )
+
+        if tipo == TipoAccionSistema.ESTADO_VISION:
+
+            return self.estado_vision()
+
         return ResultadoAccionSistema(
             ok=False,
             accion=str(
@@ -2111,4 +2295,10 @@ class EjecutorSistema:
 
             "capturador_pantalla":
                 self.capturador_pantalla.disponible,
+
+            "ejecutor_gui":
+                True,
+
+            "verificador_visual":
+                True,
         }
