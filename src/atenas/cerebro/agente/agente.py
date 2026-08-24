@@ -1,7 +1,40 @@
 from __future__ import annotations
 
-from src.atenas.cerebro.llm.ollama_client import (
-    OllamaClient,
+from typing import Any
+
+from .objetivos import (
+    GestorObjetivos,
+    Objetivo,
+)
+
+from .pendientes import (
+    EstadoPendiente,
+    GestorPendientes,
+)
+
+from .estado_mundo import EstadoMundo
+
+from .decision_engine import (
+    Decision,
+    DecisionEngine,
+    TipoDecisionAgente,
+)
+
+from .detector_necesidades import (
+    DetectorNecesidades,
+)
+
+from .persistencia import (
+    PersistenciaAgente,
+)
+
+from .planificador_inteligente import (
+    PlanificadorInteligente,
+)
+
+from .capacidad_desarrollo import (
+    CapacidadDesarrollo,
+    ResultadoCapacidadDesarrollo,
 )
 
 from src.atenas.memoria.store_manager import (
@@ -12,76 +45,43 @@ from src.atenas.herramientas import (
     ToolExecutor,
 )
 
-from .objetivos import (
-    GestorObjetivos,
-    Objetivo,
-)
-
-from .pendientes import (
-    GestorPendientes,
-    EstadoPendiente,
-)
-
-from .estado_mundo import EstadoMundo
-
-from .decision_engine import (
-    DecisionEngine,
-    Decision,
-)
-
-from .detector_necesidades import (
-    DetectorNecesidades,
-)
-
-from .planificador_inteligente import (
-    PlanificadorInteligente,
-)
-
-from .persistencia import (
-    PersistenciaAgente,
-)
-
 
 class AgenteAtenas:
+    """
+    Agente principal de ATENAS V2.
+
+    Integra:
+    - observación;
+    - detección de necesidades;
+    - objetivos y pendientes persistentes;
+    - herramientas simples;
+    - capacidades complejas;
+    - creación de proyectos de software;
+    - continuación autónoma de proyectos.
+    """
 
     def __init__(
         self,
         storage: StorageManager | None = None,
-        llm: OllamaClient | None = None,
+        capacidad_desarrollo: (
+            CapacidadDesarrollo
+            | None
+        ) = None,
     ):
-
-        # =====================================================
-        # RECURSOS COMPARTIDOS
-        # =====================================================
 
         self.storage = (
             storage
             or StorageManager()
         )
 
-        self.llm = llm
-
-        # =====================================================
-        # ESTADO DEL AGENTE
-        # =====================================================
-
         self.estado = EstadoMundo()
+        self.objetivos = GestorObjetivos()
+        self.pendientes = GestorPendientes()
+        self.decisiones = DecisionEngine()
 
-        self.objetivos = (
-            GestorObjetivos()
+        self.planificador = (
+            PlanificadorInteligente()
         )
-
-        self.pendientes = (
-            GestorPendientes()
-        )
-
-        self.decisiones = (
-            DecisionEngine()
-        )
-
-        # =====================================================
-        # COMPONENTES
-        # =====================================================
 
         self.detector_necesidades = (
             DetectorNecesidades(
@@ -89,15 +89,7 @@ class AgenteAtenas:
             )
         )
 
-        self.planificador = (
-            PlanificadorInteligente(
-                llm=self.llm
-            )
-        )
-
-        self.executor = (
-            ToolExecutor()
-        )
+        self.executor = ToolExecutor()
 
         self.persistencia = (
             PersistenciaAgente(
@@ -105,9 +97,12 @@ class AgenteAtenas:
             )
         )
 
-        # =====================================================
-        # RECUPERAR ESTADO PERSISTENTE
-        # =====================================================
+        self.capacidad_desarrollo = (
+            capacidad_desarrollo
+            or CapacidadDesarrollo(
+                llm=self.planificador.llm
+            )
+        )
 
         self.objetivos.cargar(
             self.persistencia
@@ -119,49 +114,8 @@ class AgenteAtenas:
             .cargar_pendientes()
         )
 
-        # =====================================================
-        # OBJETIVOS BASE
-        # =====================================================
-
-        self._asegurar_objetivos_base()
-
     # =========================================================
-    # OBJETIVOS BASE
-    # =========================================================
-
-    def _asegurar_objetivos_base(
-        self,
-    ) -> None:
-
-        if (
-            self.objetivos.obtener(
-                "documentar_atenas"
-            )
-            is None
-        ):
-
-            self.agregar_objetivo(
-                Objetivo(
-                    id="documentar_atenas",
-                    nombre=(
-                        "Documentar desarrollo "
-                        "de Atenas"
-                    ),
-                    descripcion=(
-                        "Mantener un registro útil "
-                        "de decisiones y cambios "
-                        "importantes relacionados "
-                        "con el desarrollo de Atenas, "
-                        "incluyendo software, robótica, "
-                        "hardware, visión, voz y memoria."
-                    ),
-                    prioridad=0.8,
-                    autonomia=True,
-                )
-            )
-
-    # =========================================================
-    # AGREGAR OBJETIVO
+    # OBJETIVOS
     # =========================================================
 
     def agregar_objetivo(
@@ -186,7 +140,10 @@ class AgenteAtenas:
         mensaje: str,
     ) -> list:
 
-        mensaje = mensaje.strip()
+        mensaje = (
+            mensaje
+            or ""
+        ).strip()
 
         if not mensaje:
             return []
@@ -203,22 +160,20 @@ class AgenteAtenas:
             )
         )
 
-        creados = []
+        pendientes_creados = []
 
         for necesidad in necesidades:
 
-            # =================================================
-            # EVITAR DUPLICADOS DEL MISMO MENSAJE
-            # =================================================
-
             ya_existe = any(
                 (
-                    pendiente.objetivo_id
-                    == necesidad.objetivo_id
+                    (
+                        pendiente.accion_sugerida
+                        == necesidad.accion_sugerida
+                    )
                     and (
                         pendiente.mensaje_origen
                         or ""
-                    ).lower()
+                    ).strip().lower()
                     == mensaje.lower()
                 )
                 for pendiente
@@ -229,7 +184,8 @@ class AgenteAtenas:
                 continue
 
             pendiente = (
-                self.pendientes.crear(
+                self.pendientes
+                .crear(
                     descripcion=(
                         necesidad.descripcion
                     ),
@@ -251,14 +207,14 @@ class AgenteAtenas:
                 pendiente
             )
 
-            creados.append(
+            pendientes_creados.append(
                 pendiente
             )
 
-        return creados
+        return pendientes_creados
 
     # =========================================================
-    # CREAR PENDIENTE MANUAL
+    # CREAR PENDIENTE
     # =========================================================
 
     def crear_pendiente(
@@ -267,23 +223,16 @@ class AgenteAtenas:
         objetivo_id: str | None = None,
         prioridad: float = 0.5,
         requiere_confirmacion: bool = False,
-        accion_sugerida: str | None = None,
-        mensaje_origen: str | None = None,
     ):
 
         pendiente = (
-            self.pendientes.crear(
+            self.pendientes
+            .crear(
                 descripcion=descripcion,
                 objetivo_id=objetivo_id,
                 prioridad=prioridad,
                 requiere_confirmacion=(
                     requiere_confirmacion
-                ),
-                accion_sugerida=(
-                    accion_sugerida
-                ),
-                mensaje_origen=(
-                    mensaje_origen
                 ),
             )
         )
@@ -300,173 +249,347 @@ class AgenteAtenas:
 
     def pensar(
         self,
-        pendiente_id: str | None = None,
+        permitir_iniciativa_desarrollo: bool = True,
     ) -> dict:
 
-        # =====================================================
-        # PENDIENTE ESPECÍFICO DEL TURNO ACTUAL
-        # =====================================================
-
-        if pendiente_id is not None:
-
-            pendiente = (
-                self.pendientes.obtener(
-                    pendiente_id
-                )
-            )
-
-            if pendiente is None:
-
-                return {
-                    "decision": None,
-                    "plan": None,
-                    "error": (
-                        "El pendiente solicitado "
-                        "no existe."
-                    ),
-                }
-
-            decision = Decision(
-                actuar=True,
-                motivo=(
-                    "Se está evaluando una necesidad "
-                    "detectada en el turno actual."
+        decision = (
+            self.decisiones
+            .decidir_ampliado(
+                estado=self.estado,
+                objetivos=self.objetivos,
+                pendientes=self.pendientes,
+                capacidad_desarrollo=(
+                    self.capacidad_desarrollo
                 ),
-                objetivo_id=(
-                    pendiente.objetivo_id
+                permitir_iniciativa_desarrollo=(
+                    permitir_iniciativa_desarrollo
                 ),
-                pendiente_id=(
-                    pendiente.id
-                ),
-                confianza=0.95,
             )
+        )
 
-        # =====================================================
-        # MODO GENERAL
-        # =====================================================
+        if not decision.actuar:
 
-        else:
+            return {
+                "decision": decision,
+                "plan": None,
+                "tipo": decision.tipo.value,
+            }
 
-            decision = (
-                self.decisiones.decidir(
-                    estado=self.estado,
-                    objetivos=self.objetivos,
-                    pendientes=self.pendientes,
+        if (
+            decision.capacidad
+            == "desarrollo_software"
+        ):
+
+            return {
+                "decision": decision,
+                "plan": None,
+                "tipo": decision.tipo.value,
+            }
+
+        pendiente = next(
+            (
+                p
+                for p
+                in self.pendientes
+                .pendientes()
+                if (
+                    p.id
+                    == decision.pendiente_id
                 )
-            )
-
-            if not decision.actuar:
-
-                return {
-                    "decision": decision,
-                    "plan": None,
-                }
-
-            pendiente = (
-                self.pendientes.obtener(
-                    decision.pendiente_id
-                )
-                if decision.pendiente_id
-                else None
-            )
-
-        # =====================================================
-        # SIN PENDIENTE
-        # =====================================================
+            ),
+            None,
+        )
 
         if pendiente is None:
 
             return {
                 "decision": decision,
                 "plan": None,
+                "tipo": decision.tipo.value,
             }
 
-        # =====================================================
-        # PLANIFICAR
-        # =====================================================
-
-        try:
-
-            plan = (
-                self.planificador.crear_plan(
-                    pendiente
-                )
+        plan = (
+            self.planificador
+            .crear_plan(
+                pendiente
             )
-
-        except Exception as error:
-
-            print(
-                "[ATENAS][PLANIFICADOR] "
-                f"No pudo crear un plan: {error}"
-            )
-
-            return {
-                "decision": decision,
-                "plan": None,
-                "error": str(error),
-            }
+        )
 
         return {
             "decision": decision,
             "plan": plan,
+            "tipo": decision.tipo.value,
         }
 
     # =========================================================
-    # ACTUAR
+    # COMPLETAR PENDIENTE ASOCIADO A CAPACIDAD
     # =========================================================
 
-    def actuar(
+    def _cerrar_pendiente_capacidad(
         self,
-        pendiente_id: str | None = None,
+        decision: Decision,
+        resultado: ResultadoCapacidadDesarrollo,
+    ) -> None:
+
+        if not decision.pendiente_id:
+            return
+
+        pendiente = (
+            self.pendientes
+            .obtener(
+                decision.pendiente_id
+            )
+        )
+
+        if pendiente is None:
+            return
+
+        if resultado.ok:
+
+            self.pendientes.completar(
+                decision.pendiente_id,
+                resultado=(
+                    resultado.mensaje
+                    or "Capacidad ejecutada correctamente."
+                ),
+            )
+
+        else:
+
+            self.pendientes.fallar(
+                decision.pendiente_id,
+                resultado=(
+                    resultado.error
+                    or resultado.mensaje
+                    or "La capacidad falló."
+                ),
+            )
+
+        actualizado = (
+            self.pendientes
+            .obtener(
+                decision.pendiente_id
+            )
+        )
+
+        if actualizado is not None:
+
+            self.persistencia.guardar_pendiente(
+                actualizado
+            )
+
+    # =========================================================
+    # CAPACIDAD DESARROLLO
+    # =========================================================
+
+    def _actuar_desarrollo(
+        self,
+        decision: Decision,
     ) -> dict:
 
-        pensamiento = self.pensar(
-            pendiente_id=pendiente_id
+        accion = (
+            decision.accion_capacidad
+            or ""
         )
 
-        decision = pensamiento.get(
-            "decision"
+        argumentos = (
+            decision.argumentos
+            or {}
         )
 
-        plan = pensamiento.get(
-            "plan"
-        )
+        try:
 
-        # =====================================================
-        # NO HUBO DECISIÓN
-        # =====================================================
+            if accion == "crear_proyecto":
 
-        if decision is None:
+                resultado = (
+                    self.capacidad_desarrollo
+                    .crear_proyecto(
+                        descripcion=str(
+                            argumentos.get(
+                                "descripcion",
+                                "",
+                            )
+                            or ""
+                        ),
+                        carpeta=(
+                            argumentos.get(
+                                "carpeta"
+                            )
+                        ),
+                        nombre_sugerido=(
+                            argumentos.get(
+                                "nombre_sugerido"
+                            )
+                        ),
+                        creado_por="agente",
+                        prioridad=float(
+                            argumentos.get(
+                                "prioridad",
+                                0.70,
+                            )
+                            or 0.70
+                        ),
+                        urgencia=float(
+                            argumentos.get(
+                                "urgencia",
+                                0.0,
+                            )
+                            or 0.0
+                        ),
+                    )
+                )
+
+            elif accion == "continuar_proyecto":
+
+                proyecto_id = (
+                    argumentos.get(
+                        "proyecto_id"
+                    )
+                    or decision.proyecto_id
+                )
+
+                if not proyecto_id:
+
+                    return {
+                        "actuo": False,
+                        "exito": False,
+                        "decision": decision,
+                        "plan": None,
+                        "resultados": [],
+                        "error": (
+                            "No se indicó proyecto_id."
+                        ),
+                    }
+
+                resultado = (
+                    self.capacidad_desarrollo
+                    .continuar_proyecto(
+                        proyecto_id=proyecto_id,
+                        max_ciclos=int(
+                            argumentos.get(
+                                "max_ciclos",
+                                1,
+                            )
+                            or 1
+                        ),
+                    )
+                )
+
+            elif accion == "consultar_estado":
+
+                proyecto_id = (
+                    argumentos.get(
+                        "proyecto_id"
+                    )
+                    or decision.proyecto_id
+                )
+
+                if not proyecto_id:
+
+                    return {
+                        "actuo": False,
+                        "exito": False,
+                        "decision": decision,
+                        "plan": None,
+                        "resultados": [],
+                        "error": (
+                            "No se indicó proyecto_id."
+                        ),
+                    }
+
+                resultado = (
+                    self.capacidad_desarrollo
+                    .estado_proyecto(
+                        proyecto_id
+                    )
+                )
+
+            elif accion == "listar_proyectos":
+
+                resultado = (
+                    self.capacidad_desarrollo
+                    .listar_proyectos(
+                        solo_activos=bool(
+                            argumentos.get(
+                                "solo_activos",
+                                False,
+                            )
+                        )
+                    )
+                )
+
+            else:
+
+                return {
+                    "actuo": False,
+                    "exito": False,
+                    "decision": decision,
+                    "plan": None,
+                    "resultados": [],
+                    "error": (
+                        f"Acción no soportada: {accion}"
+                    ),
+                }
+
+        except Exception as error:
 
             return {
-                "actuo": False,
+                "actuo": True,
                 "exito": False,
-                "decision": None,
-                "plan": plan,
+                "decision": decision,
+                "plan": None,
                 "resultados": [],
-                "error": pensamiento.get(
-                    "error",
-                    (
-                        "ATENAS no pudo tomar "
-                        "una decisión."
-                    ),
+                "capacidad": "desarrollo_software",
+                "accion_capacidad": accion,
+                "error": (
+                    f"{type(error).__name__}: "
+                    f"{error}"
                 ),
             }
 
-        # =====================================================
-        # NO HAY NADA QUE HACER
-        # =====================================================
+        self._cerrar_pendiente_capacidad(
+            decision=decision,
+            resultado=resultado,
+        )
 
-        if (
-            not decision.actuar
-            or plan is None
-        ):
+        return {
+            "actuo": True,
+            "exito": resultado.ok,
+            "decision": decision,
+            "plan": None,
+            "resultados": [resultado],
+            "capacidad": "desarrollo_software",
+            "accion_capacidad": accion,
+            "proyecto_id": resultado.proyecto_id,
+            "estado_proyecto": resultado.estado,
+            "progreso": resultado.progreso,
+            "requiere_confirmacion": (
+                resultado.requiere_confirmacion
+            ),
+            "dependencias_pendientes": (
+                resultado.dependencias_pendientes
+            ),
+            "mensaje": resultado.mensaje,
+            "error": resultado.error,
+        }
+
+    # =========================================================
+    # PENDIENTE TRADICIONAL
+    # =========================================================
+
+    def _actuar_pendiente(
+        self,
+        decision: Decision,
+        plan: Any,
+    ) -> dict:
+
+        if plan is None:
 
             return {
                 "actuo": False,
                 "exito": None,
                 "decision": decision,
-                "plan": plan,
+                "plan": None,
                 "resultados": [],
             }
 
@@ -478,18 +601,15 @@ class AgenteAtenas:
 
             return {
                 "actuo": False,
-                "exito": False,
+                "exito": None,
                 "decision": decision,
                 "plan": plan,
                 "resultados": [],
-                "error": (
-                    "La decisión no contiene "
-                    "un pendiente."
-                ),
             }
 
         pendiente = (
-            self.pendientes.obtener(
+            self.pendientes
+            .obtener(
                 pendiente_id
             )
         )
@@ -504,75 +624,48 @@ class AgenteAtenas:
                 "resultados": [],
                 "error": (
                     "El pendiente seleccionado "
-                    "no existe."
+                    "ya no existe."
                 ),
             }
-
-        # =====================================================
-        # PLAN VACÍO
-        # =====================================================
-
-        if not plan.pasos:
-
-            self.pendientes.completar(
-                pendiente_id,
-                resultado=(
-                    "ATENAS determinó que "
-                    "no era necesario ejecutar "
-                    "ninguna herramienta."
-                ),
-            )
-
-            self.persistencia.guardar_pendiente(
-                pendiente
-            )
-
-            return {
-                "actuo": False,
-                "exito": True,
-                "decision": decision,
-                "plan": plan,
-                "resultados": [],
-                "pasos_ejecutados": 0,
-            }
-
-        # =====================================================
-        # MARCAR EN PROCESO
-        # =====================================================
 
         self.pendientes.iniciar(
             pendiente_id
         )
 
-        self.persistencia.guardar_pendiente(
-            pendiente
+        pendiente = (
+            self.pendientes
+            .obtener(
+                pendiente_id
+            )
         )
 
-        resultados = []
+        if pendiente is not None:
 
-        # =====================================================
-        # EJECUTAR PLAN
-        # =====================================================
+            self.persistencia.guardar_pendiente(
+                pendiente
+            )
+
+        resultados = []
 
         for numero_paso, paso in enumerate(
             plan.pasos,
             start=1,
         ):
 
-            # =================================================
-            # CONFIRMACIÓN
-            # =================================================
-
             if paso.requiere_confirmacion:
+
+                mensaje = (
+                    f"El paso {numero_paso} "
+                    f"'{paso.herramienta}' "
+                    "requiere confirmación."
+                )
 
                 pendiente.estado = (
                     EstadoPendiente.PENDIENTE
                 )
 
                 pendiente.resultado = (
-                    f"El paso {numero_paso} "
-                    f"'{paso.herramienta}' "
-                    "requiere confirmación."
+                    mensaje
                 )
 
                 self.persistencia.guardar_pendiente(
@@ -587,14 +680,12 @@ class AgenteAtenas:
                     "resultados": resultados,
                     "requiere_confirmacion": True,
                     "paso_pendiente": numero_paso,
+                    "mensaje": mensaje,
                 }
 
-            # =================================================
-            # EJECUTAR HERRAMIENTA
-            # =================================================
-
             resultado = (
-                self.executor.ejecutar(
+                self.executor
+                .ejecutar(
                     paso.herramienta,
                     paso.argumentos,
                 )
@@ -604,20 +695,12 @@ class AgenteAtenas:
                 resultado
             )
 
-            # =================================================
-            # REGISTRAR ACCIÓN
-            # =================================================
-
             try:
 
                 self.persistencia.registrar_accion(
                     pendiente_id=pendiente_id,
-                    herramienta=(
-                        paso.herramienta
-                    ),
-                    argumentos=(
-                        paso.argumentos
-                    ),
+                    herramienta=paso.herramienta,
+                    argumentos=paso.argumentos,
                     resultado=resultado,
                 )
 
@@ -627,10 +710,6 @@ class AgenteAtenas:
                     "[ATENAS][AGENTE][HISTORIAL] "
                     f"{error}"
                 )
-
-            # =================================================
-            # ERROR DE HERRAMIENTA
-            # =================================================
 
             if not resultado.get(
                 "ok",
@@ -654,9 +733,18 @@ class AgenteAtenas:
                     ),
                 )
 
-                self.persistencia.guardar_pendiente(
-                    pendiente
+                pendiente = (
+                    self.pendientes
+                    .obtener(
+                        pendiente_id
+                    )
                 )
+
+                if pendiente is not None:
+
+                    self.persistencia.guardar_pendiente(
+                        pendiente
+                    )
 
                 return {
                     "actuo": True,
@@ -671,10 +759,6 @@ class AgenteAtenas:
                     "error": mensaje_error,
                 }
 
-        # =====================================================
-        # COMPLETADO
-        # =====================================================
-
         self.pendientes.completar(
             pendiente_id,
             resultado=(
@@ -682,9 +766,18 @@ class AgenteAtenas:
             ),
         )
 
-        self.persistencia.guardar_pendiente(
-            pendiente
+        pendiente = (
+            self.pendientes
+            .obtener(
+                pendiente_id
+            )
         )
+
+        if pendiente is not None:
+
+            self.persistencia.guardar_pendiente(
+                pendiente
+            )
 
         return {
             "actuo": True,
@@ -692,7 +785,172 @@ class AgenteAtenas:
             "decision": decision,
             "plan": plan,
             "resultados": resultados,
-            "pasos_ejecutados": (
-                len(resultados)
+            "pasos_ejecutados": len(
+                resultados
             ),
         }
+
+    # =========================================================
+    # REGISTRAR RESULTADO EN ESTADO MUNDO
+    # =========================================================
+
+    def _registrar_resultado_estado(
+        self,
+        resultado: dict,
+    ) -> dict:
+
+        decision = (
+            resultado.get(
+                "decision"
+            )
+        )
+
+        accion = (
+            resultado.get(
+                "accion_capacidad"
+            )
+            or getattr(
+                getattr(
+                    decision,
+                    "tipo",
+                    None,
+                ),
+                "value",
+                "sin_accion",
+            )
+        )
+
+        try:
+
+            self.estado.registrar_accion(
+                accion=str(
+                    accion
+                ),
+                ok=(
+                    resultado.get(
+                        "exito"
+                    )
+                ),
+                datos={
+                    "proyecto_id":
+                        resultado.get(
+                            "proyecto_id"
+                        ),
+
+                    "capacidad":
+                        resultado.get(
+                            "capacidad"
+                        ),
+                },
+            )
+
+        except Exception:
+            pass
+
+        return resultado
+
+    # =========================================================
+    # ACTUAR
+    # =========================================================
+
+    def actuar(
+        self,
+        permitir_iniciativa_desarrollo: bool = True,
+    ) -> dict:
+
+        pensamiento = (
+            self.pensar(
+                permitir_iniciativa_desarrollo=(
+                    permitir_iniciativa_desarrollo
+                )
+            )
+        )
+
+        decision: Decision = (
+            pensamiento[
+                "decision"
+            ]
+        )
+
+        plan = pensamiento[
+            "plan"
+        ]
+
+        if not decision.actuar:
+
+            return {
+                "actuo": False,
+                "exito": None,
+                "decision": decision,
+                "plan": plan,
+                "resultados": [],
+            }
+
+        if (
+            decision.capacidad
+            == "desarrollo_software"
+        ):
+
+            return (
+                self._actuar_desarrollo(
+                    decision
+                )
+            )
+
+        return (
+            self._actuar_pendiente(
+                decision=decision,
+                plan=plan,
+            )
+        )
+
+    # =========================================================
+    # API EXPLÍCITA
+    # =========================================================
+
+    def crear_proyecto_software(
+        self,
+        descripcion: str,
+        nombre_sugerido: str | None = None,
+        carpeta: str | None = None,
+    ) -> ResultadoCapacidadDesarrollo:
+
+        return (
+            self.capacidad_desarrollo
+            .crear_proyecto(
+                descripcion=descripcion,
+                nombre_sugerido=(
+                    nombre_sugerido
+                ),
+                carpeta=carpeta,
+                creado_por="usuario",
+                prioridad=0.75,
+                urgencia=0.0,
+            )
+        )
+
+    def continuar_proyecto_software(
+        self,
+        proyecto_id: str,
+        max_ciclos: int = 1,
+    ) -> ResultadoCapacidadDesarrollo:
+
+        return (
+            self.capacidad_desarrollo
+            .continuar_proyecto(
+                proyecto_id=proyecto_id,
+                max_ciclos=max_ciclos,
+            )
+        )
+
+    def proyectos_software(
+        self,
+        solo_activos: bool = False,
+    ) -> ResultadoCapacidadDesarrollo:
+
+        return (
+            self.capacidad_desarrollo
+            .listar_proyectos(
+                solo_activos=solo_activos
+            )
+        )

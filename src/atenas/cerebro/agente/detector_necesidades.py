@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from src.atenas.cerebro.memoria.clasificador import (
     ClasificadorMemoria,
 )
-
 from src.atenas.memoria.store_manager import (
     StorageManager,
 )
@@ -19,11 +19,9 @@ from .objetivos import (
 @dataclass
 class NecesidadDetectada:
     descripcion: str
-    objetivo_id: str
-
+    objetivo_id: str | None
     prioridad: float
     confianza: float
-
     tipo: str
 
     dominio: str | None = None
@@ -36,159 +34,123 @@ class DetectorNecesidades:
     """
     Detector híbrido de iniciativa de ATENAS.
 
-    Detecta información que realmente representa
-    una decisión, cambio, intención o actualización.
+    Detecta dos grandes clases de necesidades:
 
-    NO debe convertir preguntas normales en tareas.
+    1. Necesidades relacionadas con objetivos activos.
+    2. Necesidades explícitas de desarrollo de software, incluso si
+       todavía no existe un objetivo formal asociado.
+
+    Una necesidad de software se transforma posteriormente en un
+    pendiente especial con:
+        accion_sugerida = "desarrollo_software:crear_proyecto"
+
+    Esto permite persistir la intención antes de que DecisionEngine
+    decida ejecutarla.
     """
 
-    # =========================================================
-    # INDICADORES REALES DE CAMBIO
-    # =========================================================
-
     INDICADORES_CAMBIO = (
-        "voy a ",
-        "quiero usar ",
-        "quiero utilizar ",
-        "quiero agregar ",
-        "quiero cambiar ",
-        "quiero hacer ",
-        "decidí ",
-        "decidi ",
-        "he decidido ",
-        "mejor voy a ",
-        "cambiaré ",
-        "cambiare ",
-        "usaré ",
-        "usare ",
-        "utilizaré ",
-        "utilizare ",
-        "tendrá ",
-        "tendra ",
-        "tendrán ",
-        "tendran ",
-        "haré ",
-        "hare ",
-        "agregaré ",
-        "agregare ",
-        "eliminaré ",
-        "eliminare ",
-        "estoy usando ",
-        "estoy utilizando ",
-        "estoy creando ",
-        "estoy desarrollando ",
-        "voy a cambiar ",
-        "voy a usar ",
-        "voy a utilizar ",
-        "voy a agregar ",
-        "voy a eliminar ",
-        "ahora usaré ",
-        "ahora usare ",
-        "finalmente usaré ",
-        "finalmente usare ",
+        "voy a",
+        "quiero",
+        "decidí",
+        "decidi",
+        "mejor",
+        "cambiaré",
+        "cambiare",
+        "usaré",
+        "usare",
+        "tendrá",
+        "tendra",
+        "tendrán",
+        "tendran",
+        "haré",
+        "hare",
+        "agregaré",
+        "agregare",
+        "eliminaré",
+        "eliminare",
+        "utilizaré",
+        "utilizare",
+        "estoy usando",
+        "estoy utilizando",
+        "estoy creando",
+        "estoy desarrollando",
+        "primero",
+        "después",
+        "despues",
     )
 
     # =========================================================
-    # PREGUNTAS QUE NO REPRESENTAN UNA ACCIÓN
+    # DESARROLLO
     # =========================================================
 
-    INICIOS_PREGUNTA = (
-        "qué ",
-        "que ",
-        "cómo ",
-        "como ",
-        "cuál ",
-        "cual ",
-        "cuáles ",
-        "cuales ",
-        "dónde ",
-        "donde ",
-        "cuándo ",
-        "cuando ",
-        "quién ",
-        "quien ",
-        "por qué ",
-        "por que ",
-        "puedes ",
-        "podrías ",
-        "podrias ",
-        "sabes ",
-        "recuerdas ",
-        "tienes ",
-        "eres ",
-        "estás ",
-        "estas ",
-        "funciona ",
+    VERBOS_DESARROLLO = (
+        "crear",
+        "crea",
+        "creame",
+        "créame",
+        "hacer",
+        "haz",
+        "desarrollar",
+        "desarrolla",
+        "programar",
+        "programa",
+        "construir",
+        "construye",
+        "implementar",
+        "implementa",
+        "necesito",
+        "quiero",
+        "requiero",
     )
 
-    # =========================================================
-    # CONSULTAS SOBRE ATENAS
-    # =========================================================
-
-    CONSULTAS_CAPACIDAD = (
-        "puedes modificar",
-        "puedes cambiar",
-        "puedes reparar",
-        "puedes programar",
-        "puedes corregir",
-        "qué puedes hacer",
-        "que puedes hacer",
-        "qué capacidades",
-        "que capacidades",
-        "qué herramientas",
-        "que herramientas",
-        "puedes usar internet",
-        "tienes internet",
-        "puedes acceder",
-        "puedes recordar",
-        "tienes memoria",
-        "puedes aprender",
-        "puedes investigar",
-        "puedes modificar tu propio código",
-        "puedes modificar tu propio codigo",
-        "puedes corregir tu código",
-        "puedes corregir tu codigo",
+    OBJETOS_SOFTWARE = (
+        "sistema",
+        "software",
+        "aplicacion",
+        "aplicación",
+        "app",
+        "pagina web",
+        "página web",
+        "sitio web",
+        "portal",
+        "plataforma",
+        "api",
+        "backend",
+        "frontend",
+        "base de datos",
+        "programa",
+        "aplicativo",
+        "dashboard",
+        "panel web",
+        "sistema web",
+        "sistema de escritorio",
+        "aplicacion de escritorio",
+        "aplicación de escritorio",
     )
 
-    CONSULTAS_IDENTIDAD = (
-        "cómo te llamas",
-        "como te llamas",
-        "quién eres",
-        "quien eres",
-        "qué eres",
-        "que eres",
-        "quién te creó",
-        "quien te creo",
-        "quién te hizo",
-        "quien te hizo",
+    INDICADORES_PROYECTO_CLIENTE = (
+        "para un cliente",
+        "para mi cliente",
+        "proyecto de cliente",
+        "sistema para",
+        "software para",
+        "aplicacion para",
+        "aplicación para",
+        "plataforma para",
+        "portal para",
     )
 
-    # =========================================================
-    # CONVERSACIÓN CASUAL
-    # =========================================================
-
-    CONVERSACION_CASUAL = (
-        "hola",
-        "hola atenas",
-        "buenas",
-        "buenos días",
-        "buenos dias",
-        "buenas tardes",
-        "buenas noches",
-        "qué cuentas",
-        "que cuentas",
-        "cómo estás",
-        "como estas",
-        "gracias",
-        "muchas gracias",
-        "ok",
-        "okay",
-        "dale",
-        "perfecto",
-        "bien",
-        "sí",
-        "si",
-        "no",
+    EXCLUSIONES_DESARROLLO = (
+        "qué es un sistema",
+        "que es un sistema",
+        "qué es software",
+        "que es software",
+        "explica qué",
+        "explica que",
+        "definición de",
+        "definicion de",
+        "qué opinas",
+        "que opinas",
     )
 
     def __init__(
@@ -202,138 +164,6 @@ class DetectorNecesidades:
 
         self.clasificador = (
             ClasificadorMemoria()
-        )
-
-    # =========================================================
-    # NORMALIZAR
-    # =========================================================
-
-    @staticmethod
-    def _normalizar(
-        mensaje: str,
-    ) -> str:
-
-        return " ".join(
-            (
-                mensaje
-                or ""
-            )
-            .strip()
-            .lower()
-            .split()
-        )
-
-    # =========================================================
-    # ¿ES PREGUNTA?
-    # =========================================================
-
-    def _es_pregunta(
-        self,
-        mensaje: str,
-    ) -> bool:
-
-        texto = self._normalizar(
-            mensaje
-        )
-
-        if not texto:
-            return False
-
-        # Pregunta explícita
-        if "?" in mensaje:
-            return True
-
-        if "¿" in mensaje:
-            return True
-
-        # Pregunta sin signos
-        if any(
-            texto.startswith(
-                inicio
-            )
-            for inicio
-            in self.INICIOS_PREGUNTA
-        ):
-            return True
-
-        return False
-
-    # =========================================================
-    # ¿ES CONSULTA DE CAPACIDAD?
-    # =========================================================
-
-    def _es_consulta_capacidad(
-        self,
-        mensaje: str,
-    ) -> bool:
-
-        texto = self._normalizar(
-            mensaje
-        )
-
-        return any(
-            consulta in texto
-            for consulta
-            in self.CONSULTAS_CAPACIDAD
-        )
-
-    # =========================================================
-    # ¿ES CONSULTA DE IDENTIDAD?
-    # =========================================================
-
-    def _es_consulta_identidad(
-        self,
-        mensaje: str,
-    ) -> bool:
-
-        texto = self._normalizar(
-            mensaje
-        )
-
-        return any(
-            consulta in texto
-            for consulta
-            in self.CONSULTAS_IDENTIDAD
-        )
-
-    # =========================================================
-    # ¿ES CONVERSACIÓN CASUAL?
-    # =========================================================
-
-    def _es_conversacion_casual(
-        self,
-        mensaje: str,
-    ) -> bool:
-
-        texto = self._normalizar(
-            mensaje
-        )
-
-        return (
-            texto
-            in self.CONVERSACION_CASUAL
-        )
-
-    # =========================================================
-    # ¿TIENE INTENCIÓN EXPLÍCITA?
-    # =========================================================
-
-    def _tiene_indicador_cambio(
-        self,
-        mensaje: str,
-    ) -> bool:
-
-        texto = (
-            self._normalizar(
-                mensaje
-            )
-            + " "
-        )
-
-        return any(
-            indicador in texto
-            for indicador
-            in self.INDICADORES_CAMBIO
         )
 
     # =========================================================
@@ -354,47 +184,6 @@ class DetectorNecesidades:
         if not mensaje:
             return []
 
-        # =====================================================
-        # 1. DESCARTAR CONVERSACIÓN CASUAL
-        # =====================================================
-
-        if self._es_conversacion_casual(
-            mensaje
-        ):
-            return []
-
-        # =====================================================
-        # 2. DESCARTAR IDENTIDAD
-        # =====================================================
-
-        if self._es_consulta_identidad(
-            mensaje
-        ):
-            return []
-
-        # =====================================================
-        # 3. DESCARTAR CAPACIDADES
-        # =====================================================
-
-        if self._es_consulta_capacidad(
-            mensaje
-        ):
-            return []
-
-        # =====================================================
-        # 4. LAS PREGUNTAS NORMALES NO SON TAREAS
-        # =====================================================
-
-        if self._es_pregunta(
-            mensaje
-        ):
-
-            return []
-
-        # =====================================================
-        # 5. CLASIFICAR
-        # =====================================================
-
         clasificacion = (
             self.clasificador
             .clasificar(
@@ -402,49 +191,176 @@ class DetectorNecesidades:
             )
         )
 
-        necesidades = []
+        necesidades: list[
+            NecesidadDetectada
+        ] = []
 
         # =====================================================
-        # 6. EVALUAR OBJETIVOS ACTIVOS
+        # 1. NECESIDAD DE DESARROLLO INDEPENDIENTE
         # =====================================================
 
-        for objetivo in (
-            objetivos.activos()
-        ):
+        necesidad_desarrollo = (
+            self._detectar_desarrollo(
+                mensaje=mensaje,
+                dominio=getattr(
+                    clasificacion,
+                    "dominio",
+                    None,
+                ),
+                categoria=getattr(
+                    clasificacion,
+                    "categoria",
+                    None,
+                ),
+            )
+        )
+
+        if necesidad_desarrollo is not None:
+
+            necesidades.append(
+                necesidad_desarrollo
+            )
+
+        # =====================================================
+        # 2. NECESIDADES RELACIONADAS A OBJETIVOS
+        # =====================================================
+
+        for objetivo in objetivos.activos():
 
             necesidad = (
                 self._evaluar_objetivo(
                     mensaje=mensaje,
                     objetivo=objetivo,
-
                     dominio=getattr(
                         clasificacion,
                         "dominio",
-                        "general",
+                        "",
                     ),
-
-                    categoria=(
-                        getattr(
-                            clasificacion,
-                            "categoria",
-                            None,
-                        )
-                        or getattr(
-                            clasificacion,
-                            "subcategoria",
-                            None,
-                        )
+                    categoria=getattr(
+                        clasificacion,
+                        "categoria",
+                        "",
                     ),
                 )
             )
 
             if necesidad:
-
                 necesidades.append(
                     necesidad
                 )
 
-        return necesidades
+        return self._deduplicar(
+            necesidades
+        )
+
+    # =========================================================
+    # DETECCIÓN DE DESARROLLO
+    # =========================================================
+
+    @classmethod
+    def _detectar_desarrollo(
+        cls,
+        mensaje: str,
+        dominio: str | None,
+        categoria: str | None,
+    ) -> NecesidadDetectada | None:
+
+        texto = (
+            mensaje
+            .strip()
+            .lower()
+        )
+
+        if not texto:
+            return None
+
+        if any(
+            exclusion in texto
+            for exclusion
+            in cls.EXCLUSIONES_DESARROLLO
+        ):
+            return None
+
+        tiene_verbo = any(
+            re.search(
+                rf"\b{re.escape(verbo)}\b",
+                texto,
+            )
+            for verbo
+            in cls.VERBOS_DESARROLLO
+        )
+
+        objetos = [
+            objeto
+            for objeto
+            in cls.OBJETOS_SOFTWARE
+            if objeto in texto
+        ]
+
+        if not objetos:
+            return None
+
+        score = 0.0
+
+        if tiene_verbo:
+            score += 0.48
+
+        # Un objeto software explícito es una señal fuerte.
+        score += min(
+            0.30,
+            len(
+                objetos
+            )
+            * 0.15,
+        )
+
+        if any(
+            patron in texto
+            for patron
+            in cls.INDICADORES_PROYECTO_CLIENTE
+        ):
+            score += 0.12
+
+        if dominio in {
+            "informatica",
+            "programacion",
+            "software",
+            "web",
+        }:
+            score += 0.08
+
+        # Debe existir intención de construcción, no solo mención.
+        if not tiene_verbo:
+            return None
+
+        if score < 0.60:
+            return None
+
+        confianza = min(
+            0.97,
+            0.55 + score * 0.45,
+        )
+
+        prioridad = min(
+            1.0,
+            max(
+                0.78,
+                score,
+            ),
+        )
+
+        return NecesidadDetectada(
+            descripcion=mensaje,
+            objetivo_id=None,
+            prioridad=prioridad,
+            confianza=confianza,
+            tipo="desarrollo_software",
+            dominio=dominio,
+            categoria=categoria,
+            accion_sugerida=(
+                "desarrollo_software:crear_proyecto"
+            ),
+        )
 
     # =========================================================
     # EVALUAR OBJETIVO
@@ -455,14 +371,10 @@ class DetectorNecesidades:
         mensaje: str,
         objetivo: Objetivo,
         dominio: str,
-        categoria: str | None,
+        categoria: str,
     ) -> NecesidadDetectada | None:
 
-        texto = (
-            self._normalizar(
-                mensaje
-            )
-        )
+        texto = mensaje.lower()
 
         objetivo_texto = (
             f"{objetivo.nombre} "
@@ -471,29 +383,12 @@ class DetectorNecesidades:
 
         score = 0.0
 
-        motivos = []
-
-        # =====================================================
-        # 1. INDICADOR EXPLÍCITO
-        # =====================================================
-
-        cambio_explicito = (
-            self._tiene_indicador_cambio(
-                mensaje
-            )
-        )
-
-        if cambio_explicito:
-
-            score += 0.40
-
-            motivos.append(
-                "indicio_explicito_de_cambio"
-            )
-
-        # =====================================================
-        # 2. DOMINIO DEL PROYECTO
-        # =====================================================
+        if any(
+            indicador in texto
+            for indicador
+            in self.INDICADORES_CAMBIO
+        ):
+            score += 0.25
 
         dominios_proyecto = {
             "robotica",
@@ -504,18 +399,11 @@ class DetectorNecesidades:
         }
 
         if dominio in dominios_proyecto:
-
-            score += 0.20
-
-            motivos.append(
-                f"dominio:{dominio}"
-            )
+            score += 0.25
 
         # =====================================================
-        # 3. SIMILITUD VECTORIAL
+        # MEMORIA VECTORIAL
         # =====================================================
-
-        similitud_maxima = 0.0
 
         try:
 
@@ -536,18 +424,14 @@ class DetectorNecesidades:
                             "similitud_semantica",
                             0.0,
                         )
-                        or 0.0
                     )
-                    for item in similares
+                    for item
+                    in similares
                 )
 
                 score += (
                     similitud_maxima
-                    * 0.20
-                )
-
-                motivos.append(
-                    "memoria_semanticamente_relacionada"
+                    * 0.30
                 )
 
         except Exception as error:
@@ -558,10 +442,8 @@ class DetectorNecesidades:
             )
 
         # =====================================================
-        # 4. GRAFO
+        # GRAFO
         # =====================================================
-
-        relaciones = []
 
         try:
 
@@ -577,12 +459,8 @@ class DetectorNecesidades:
 
                 score += min(
                     len(relaciones)
-                    * 0.02,
-                    0.10,
-                )
-
-                motivos.append(
-                    "conceptos_del_grafo"
+                    * 0.03,
+                    0.20,
                 )
 
         except Exception as error:
@@ -593,27 +471,16 @@ class DetectorNecesidades:
             )
 
         # =====================================================
-        # 5. OBJETIVO DE DOCUMENTACIÓN
+        # DOCUMENTACIÓN
         # =====================================================
 
         if "document" in objetivo_texto:
 
-            # Una similitud alta NO basta.
-            #
-            # Para crear una nota automáticamente necesitamos
-            # que el mensaje represente una afirmación/intención
-            # real de cambio.
-
-            if not cambio_explicito:
-
-                return None
-
-            if score < 0.45:
-
+            if score < 0.40:
                 return None
 
             confianza = min(
-                0.40 + score,
+                0.45 + score,
                 0.98,
             )
 
@@ -623,30 +490,70 @@ class DetectorNecesidades:
                     "relevante del proyecto: "
                     f"{mensaje}"
                 ),
-
-                objetivo_id=(
-                    objetivo.id
-                ),
-
+                objetivo_id=objetivo.id,
                 prioridad=max(
                     objetivo.prioridad,
                     min(
-                        score + 0.25,
+                        score + 0.30,
                         1.0,
                     ),
                 ),
-
                 confianza=confianza,
-
                 tipo="documentacion",
-
                 dominio=dominio,
-
                 categoria=categoria,
-
                 accion_sugerida=(
                     "crear_nota"
                 ),
             )
 
         return None
+
+    # =========================================================
+    # DEDUPLICAR
+    # =========================================================
+
+    @staticmethod
+    def _deduplicar(
+        necesidades: list[
+            NecesidadDetectada
+        ],
+    ) -> list[NecesidadDetectada]:
+
+        resultado = []
+        claves = set()
+
+        for necesidad in necesidades:
+
+            clave = (
+                necesidad.tipo,
+                necesidad.objetivo_id,
+                (
+                    necesidad.accion_sugerida
+                    or ""
+                ),
+                necesidad.descripcion
+                .strip()
+                .lower(),
+            )
+
+            if clave in claves:
+                continue
+
+            claves.add(
+                clave
+            )
+
+            resultado.append(
+                necesidad
+            )
+
+        resultado.sort(
+            key=lambda item: (
+                item.prioridad,
+                item.confianza,
+            ),
+            reverse=True,
+        )
+
+        return resultado
