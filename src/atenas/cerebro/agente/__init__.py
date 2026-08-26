@@ -124,6 +124,13 @@ from .gestor_sesion_trabajo import (
     GestorSesionTrabajo,
 )
 
+from .supervisor_sesion_autonoma import (
+    TipoDecisionSupervisorSesion,
+    DecisionSupervisorSesion,
+    ResultadoSupervisorSesion,
+    SupervisorSesionAutonoma,
+)
+
 from .ejecutor_sistema import (
     TipoAccionSistema,
     AccionSistema,
@@ -299,6 +306,11 @@ __all__ = [
     "EstadoSesionTrabajo",
     "SesionTrabajo",
     "GestorSesionTrabajo",
+
+    "TipoDecisionSupervisorSesion",
+    "DecisionSupervisorSesion",
+    "ResultadoSupervisorSesion",
+    "SupervisorSesionAutonoma",
 
     "TipoAccionSistema",
     "AccionSistema",

@@ -94,6 +94,7 @@ _CAPACIDADES = (
             "crear_tarea_escritorio",
             "crear_tarea_desde_objetivo",
             "replanificar_tarea_escritorio",
+            "supervisar_sesion_autonoma",
             "crear_sesion_trabajo",
             "consultar_sesion_trabajo",
             "actualizar_sesion_trabajo",

@@ -22,6 +22,10 @@ from .gestor_sesion_trabajo import (
     GestorSesionTrabajo,
 )
 
+from .supervisor_sesion_autonoma import (
+    TipoDecisionSupervisorSesion,
+)
+
 from .decision_engine import (
     Decision,
     DecisionEngine,
@@ -808,6 +812,7 @@ class AgenteAtenas:
     def _replanificar_tarea_escritorio(
         self,
         decision: Decision,
+        supervision_sesion: TipoDecisionSupervisorSesion
     ) -> dict:
 
         argumentos = (
@@ -827,6 +832,9 @@ class AgenteAtenas:
             return {
                 "actuo":
                     False,
+
+                "supervision_sesion":
+                    supervision_sesion,
 
                 "exito":
                     False,
@@ -1226,6 +1234,82 @@ class AgenteAtenas:
             pass
 
         return resultado
+
+    # =========================================================
+    # SUPERVISIÓN DE SESIÓN
+    # =========================================================
+
+    def supervisar_sesion(
+        self,
+    ) -> dict:
+
+        resultado = (
+            self.capacidad_sistema
+            .supervisar_sesion_autonoma()
+        )
+
+        decision = (
+            resultado.decision
+        )
+
+        self.contexto_operativo.registrar_decision(
+            tipo=(
+                "supervisor_sesion:"
+                + decision.tipo.value
+            ),
+            motivo=decision.motivo,
+            metadata={
+                "sesion_id":
+                    decision.sesion_id,
+
+                "tarea_id":
+                    decision.tarea_id,
+
+                "prioridad":
+                    decision.prioridad,
+
+                "confianza":
+                    decision.confianza,
+
+                "ok":
+                    resultado.ok,
+            },
+        )
+
+        return {
+            "ok":
+                resultado.ok,
+
+            "tipo":
+                decision.tipo.value,
+
+            "actuar":
+                decision.actuar,
+
+            "sesion_id":
+                (
+                    resultado.sesion.id
+                    if resultado.sesion
+                    else decision.sesion_id
+                ),
+
+            "tarea_id":
+                (
+                    resultado.tarea.id
+                    if resultado.tarea
+                    else decision.tarea_id
+                ),
+
+            "mensaje":
+                resultado.mensaje
+                or decision.motivo,
+
+            "error":
+                resultado.error,
+
+            "datos":
+                resultado.datos,
+        }
 
     # =========================================================
     # ACTUAR

@@ -47,6 +47,13 @@ from .gestor_sesion_trabajo import (
     GestorSesionTrabajo,
 )
 
+from .supervisor_sesion_autonoma import (
+    TipoDecisionSupervisorSesion,
+    DecisionSupervisorSesion,
+    ResultadoSupervisorSesion,
+    SupervisorSesionAutonoma,
+)
+
 
 @dataclass
 class ResultadoCapacidadSistema:
@@ -79,6 +86,7 @@ class CapacidadSistema:
         planificador_tareas: PlanificadorTareasEscritorio | None = None,
         contexto_operativo: GestorContextoOperativo | None = None,
         gestor_sesiones: GestorSesionTrabajo | None = None,
+        supervisor_sesion: SupervisorSesionAutonoma | None = None,
     ):
 
         self.ejecutor = (
@@ -119,6 +127,16 @@ class CapacidadSistema:
                 ciclo_gui=self.ejecutor.ciclo_accion_gui,
                 replanificador=self.replanificador_tareas,
                 contexto_operativo=self.contexto_operativo,
+            )
+        )
+
+        self.supervisor_sesion = (
+            supervisor_sesion
+            or SupervisorSesionAutonoma(
+                gestor_sesiones=self.gestor_sesiones,
+                registro_tareas=self.orquestador_tareas.registro,
+                contexto_operativo=self.contexto_operativo,
+                planificador_tareas=self.planificador_tareas,
             )
         )
 
@@ -1574,5 +1592,38 @@ class CapacidadSistema:
                 sesion_id=sesion_id,
                 tarea_id=tarea_id,
                 hacer_actual=hacer_actual,
+            )
+        )
+
+
+    # =========================================================
+    # SUPERVISIÓN AUTÓNOMA DE SESIÓN
+    # =========================================================
+
+    def decidir_supervision_sesion(
+        self,
+    ) -> DecisionSupervisorSesion:
+
+        return (
+            self.supervisor_sesion
+            .decidir()
+        )
+
+    def supervisar_sesion_autonoma(
+        self,
+    ) -> ResultadoSupervisorSesion:
+
+        decision = (
+            self.supervisor_sesion
+            .decidir()
+        )
+
+        return (
+            self.supervisor_sesion
+            .aplicar(
+                decision=decision,
+                crear_tarea_desde_objetivo=(
+                    self.crear_tarea_desde_objetivo
+                ),
             )
         )
