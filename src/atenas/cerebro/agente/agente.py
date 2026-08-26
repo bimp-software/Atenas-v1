@@ -734,6 +734,151 @@ class AgenteAtenas:
         }
 
     # =========================================================
+    # REPLANIFICACIÓN AUTÓNOMA DE TAREA
+    # =========================================================
+
+    def _replanificar_tarea_escritorio(
+        self,
+        decision: Decision,
+    ) -> dict:
+
+        argumentos = (
+            decision.argumentos
+            or {}
+        )
+
+        tarea_id = (
+            decision.tarea_escritorio_id
+            or argumentos.get(
+                "tarea_id"
+            )
+        )
+
+        if not tarea_id:
+
+            return {
+                "actuo":
+                    False,
+
+                "exito":
+                    False,
+
+                "decision":
+                    decision,
+
+                "capacidad":
+                    "sistema_computador",
+
+                "accion_capacidad":
+                    "evaluar_replanificacion_tarea",
+
+                "error":
+                    "tarea_escritorio_id_ausente",
+            }
+
+        try:
+
+            resultado = (
+                self.capacidad_sistema
+                .evaluar_replanificacion_tarea(
+                    tarea_id=str(
+                        tarea_id
+                    ),
+                    contexto_nuevo=(
+                        argumentos.get(
+                            "contexto_nuevo",
+                            {}
+                        )
+                        or {}
+                    ),
+                )
+            )
+
+        except Exception as error:
+
+            return {
+                "actuo":
+                    True,
+
+                "exito":
+                    False,
+
+                "decision":
+                    decision,
+
+                "capacidad":
+                    "sistema_computador",
+
+                "accion_capacidad":
+                    "evaluar_replanificacion_tarea",
+
+                "tarea_escritorio_id":
+                    str(
+                        tarea_id
+                    ),
+
+                "error":
+                    (
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    ),
+            }
+
+        return {
+            "actuo":
+                True,
+
+            "exito":
+                bool(
+                    resultado.ok
+                ),
+
+            "decision":
+                decision,
+
+            "capacidad":
+                "sistema_computador",
+
+            "accion_capacidad":
+                "replanificar_tarea_escritorio",
+
+            "tarea_escritorio_id":
+                str(
+                    tarea_id
+                ),
+
+            "mensaje":
+                (
+                    "Tarea replanificada correctamente."
+                    if resultado.ok
+                    else resultado.motivo
+                ),
+
+            "pasos_conservados":
+                resultado
+                .pasos_conservados,
+
+            "pasos_reemplazados":
+                resultado
+                .pasos_reemplazados,
+
+            "pasos_nuevos":
+                resultado
+                .pasos_nuevos,
+
+            "advertencias":
+                resultado
+                .advertencias,
+
+            "metadata":
+                resultado
+                .metadata,
+
+            "error":
+                resultado.error,
+        }
+
+    # =========================================================
     # PENDIENTE TRADICIONAL
     # =========================================================
 
@@ -1058,6 +1203,17 @@ class AgenteAtenas:
 
             return (
                 self._actuar_desarrollo(
+                    decision
+                )
+            )
+
+        if (
+            decision.tipo
+            == TipoDecisionAgente.REPLANIFICAR_TAREA_ESCRITORIO
+        ):
+
+            return (
+                self._replanificar_tarea_escritorio(
                     decision
                 )
             )
