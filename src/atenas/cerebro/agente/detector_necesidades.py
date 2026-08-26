@@ -217,16 +217,24 @@ class DetectorNecesidades:
         t = mensaje.lower()
 
         patrones = (
+
             (
-                "construir_estado_visual",
+                "crear_tarea_escritorio",
                 (
-                    "qué estás viendo",
-                    "que estas viendo",
-                    "qué ves",
-                    "que ves",
-                    "observa la pantalla",
-                    "estado visual",
-                    "analiza lo que hay en pantalla",
+                    "prepara este proyecto",
+                    "preparar este proyecto",
+                    "prepara el proyecto",
+                    "preparar el proyecto",
+                    "prepara para entregar",
+                    "preparar para entregar",
+                    "prepara la entrega",
+                    "preparar entrega",
+                    "organiza los archivos",
+                    "organizar los archivos",
+                    "organiza una carpeta",
+                    "organizar carpeta",
+                    "trabaja en el proyecto",
+                    "revisa el proyecto",
                 ),
             ),
 

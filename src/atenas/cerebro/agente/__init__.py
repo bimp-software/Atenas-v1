@@ -86,6 +86,33 @@ from .ciclo_accion_gui import (
     CicloAccionGUI,
 )
 
+from .tareas_escritorio import (
+    EstadoTareaEscritorio,
+    EstadoPasoEscritorio,
+    TipoPasoEscritorio,
+    PasoTareaEscritorio,
+    TareaEscritorio,
+)
+
+from .registro_tareas_escritorio import (
+    RegistroTareasEscritorio,
+)
+
+from .orquestador_tareas_escritorio import (
+    ResultadoPasoTarea,
+    OrquestadorTareasEscritorio,
+)
+
+from .planificador_tareas_escritorio import (
+    PlanTareaEscritorio,
+    PlanificadorTareasEscritorio,
+)
+
+from .replanificador_tareas_escritorio import (
+    ResultadoReplanificacion,
+    ReplanificadorTareasEscritorio,
+)
+
 from .ejecutor_sistema import (
     TipoAccionSistema,
     AccionSistema,
@@ -242,6 +269,19 @@ __all__ = [
 
     "ResultadoCicloGUI",
     "CicloAccionGUI",
+
+    "EstadoTareaEscritorio",
+    "EstadoPasoEscritorio",
+    "TipoPasoEscritorio",
+    "PasoTareaEscritorio",
+    "TareaEscritorio",
+    "RegistroTareasEscritorio",
+    "ResultadoPasoTarea",
+    "OrquestadorTareasEscritorio",
+    "PlanTareaEscritorio",
+    "PlanificadorTareasEscritorio",
+    "ResultadoReplanificacion",
+    "ReplanificadorTareasEscritorio",
 
     "TipoAccionSistema",
     "AccionSistema",

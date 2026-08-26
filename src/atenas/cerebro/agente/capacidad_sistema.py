@@ -16,6 +16,26 @@ from .gestor_presupuesto_autonomia import (
     GestorPresupuestoAutonomia,
 )
 
+from .tareas_escritorio import (
+    PasoTareaEscritorio,
+    TareaEscritorio,
+)
+
+from .orquestador_tareas_escritorio import (
+    OrquestadorTareasEscritorio,
+    ResultadoPasoTarea,
+)
+
+from .planificador_tareas_escritorio import (
+    PlanTareaEscritorio,
+    PlanificadorTareasEscritorio,
+)
+
+from .replanificador_tareas_escritorio import (
+    ResultadoReplanificacion,
+    ReplanificadorTareasEscritorio,
+)
+
 
 @dataclass
 class ResultadoCapacidadSistema:
@@ -44,6 +64,8 @@ class CapacidadSistema:
         self,
         ejecutor: EjecutorSistema | None = None,
         autonomia: GestorPresupuestoAutonomia | None = None,
+        orquestador_tareas: OrquestadorTareasEscritorio | None = None,
+        planificador_tareas: PlanificadorTareasEscritorio | None = None,
     ):
 
         self.ejecutor = (
@@ -54,6 +76,26 @@ class CapacidadSistema:
         self.autonomia = (
             autonomia
             or GestorPresupuestoAutonomia()
+        )
+
+        self.planificador_tareas = (
+            planificador_tareas
+            or PlanificadorTareasEscritorio()
+        )
+
+        self.replanificador_tareas = (
+            ReplanificadorTareasEscritorio(
+                planificador=self.planificador_tareas
+            )
+        )
+
+        self.orquestador_tareas = (
+            orquestador_tareas
+            or OrquestadorTareasEscritorio(
+                ejecutor_sistema=self.ejecutor,
+                ciclo_gui=self.ejecutor.ciclo_accion_gui,
+                replanificador=self.replanificador_tareas,
+            )
         )
 
     # =========================================================
@@ -1083,6 +1125,50 @@ class CapacidadSistema:
         confirmada: bool = False,
     ) -> ResultadoCapacidadSistema:
 
+        if self._es_objetivo_compuesto(
+            texto
+        ):
+
+            tarea = (
+                self.crear_tarea_desde_objetivo(
+                    objetivo=texto,
+                    contexto={},
+                    prioridad=0.78,
+                    creada_por=(
+                        "agente"
+                        if es_autonoma
+                        else "usuario"
+                    ),
+                )
+            )
+
+            return ResultadoCapacidadSistema(
+                ok=True,
+                accion="crear_tarea_escritorio",
+                mensaje=(
+                    "Tarea de escritorio planificada "
+                    "y persistida."
+                ),
+                datos={
+                    "tarea_id":
+                        tarea.id,
+
+                    "nombre":
+                        tarea.nombre,
+
+                    "estado":
+                        tarea.estado.value,
+
+                    "pasos":
+                        len(
+                            tarea.pasos
+                        ),
+
+                    "progreso":
+                        tarea.progreso,
+                },
+            )
+
         accion = (
             self.planificar_desde_texto(
                 texto
@@ -1105,4 +1191,174 @@ class CapacidadSistema:
             accion=accion,
             es_autonoma=es_autonoma,
             confirmada=confirmada,
+        )
+
+
+    def crear_tarea_escritorio(
+        self,
+        nombre: str,
+        descripcion: str,
+        pasos: list[PasoTareaEscritorio],
+        prioridad: float = 0.70,
+        creada_por: str = "agente",
+        proyecto_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> TareaEscritorio:
+        return self.orquestador_tareas.crear_tarea(
+            nombre=nombre,
+            descripcion=descripcion,
+            pasos=pasos,
+            prioridad=prioridad,
+            creada_por=creada_por,
+            proyecto_id=proyecto_id,
+            metadata=metadata,
+        )
+
+    def continuar_tarea_escritorio(
+        self,
+        tarea_id: str,
+        max_pasos: int = 5,
+        es_autonoma: bool = True,
+    ) -> list[ResultadoPasoTarea]:
+        return self.orquestador_tareas.ejecutar_hasta_pausa(
+            tarea_id=tarea_id,
+            max_pasos=max_pasos,
+            es_autonoma=es_autonoma,
+        )
+
+    def confirmar_paso_tarea_escritorio(
+        self,
+        tarea_id: str,
+    ) -> ResultadoPasoTarea:
+        return self.orquestador_tareas.ejecutar_siguiente(
+            tarea_id=tarea_id,
+            confirmada=True,
+            es_autonoma=False,
+        )
+
+    def tareas_escritorio_pendientes(
+        self,
+    ) -> list[TareaEscritorio]:
+        return self.orquestador_tareas.registro.pendientes()
+
+
+    @staticmethod
+    def _es_objetivo_compuesto(
+        texto: str,
+    ) -> bool:
+
+        t = (
+            texto
+            or ""
+        ).strip().lower()
+
+        indicadores = (
+            "prepara este proyecto",
+            "preparar este proyecto",
+            "prepara el proyecto",
+            "preparar el proyecto",
+            "prepara para entregar",
+            "preparar para entregar",
+            "prepara la entrega",
+            "preparar entrega",
+            "organiza los archivos",
+            "organizar los archivos",
+            "organiza una carpeta",
+            "organizar carpeta",
+            "trabaja en el proyecto",
+            "continuar trabajando en el proyecto",
+            "continúa trabajando en el proyecto",
+            "revisa el proyecto",
+        )
+
+        return any(
+            indicador in t
+            for indicador in indicadores
+        )
+
+    def planificar_tarea_desde_objetivo(
+        self,
+        objetivo: str,
+        contexto: dict[str, Any] | None = None,
+    ) -> PlanTareaEscritorio:
+
+        return (
+            self.planificador_tareas
+            .planificar(
+                objetivo=objetivo,
+                contexto=contexto,
+            )
+        )
+
+    def crear_tarea_desde_objetivo(
+        self,
+        objetivo: str,
+        contexto: dict[str, Any] | None = None,
+        prioridad: float | None = None,
+        creada_por: str = "agente",
+        proyecto_id: str | None = None,
+    ) -> TareaEscritorio:
+
+        plan = (
+            self.planificar_tarea_desde_objetivo(
+                objetivo=objetivo,
+                contexto=contexto,
+            )
+        )
+
+        tarea = (
+            self.crear_tarea_escritorio(
+                nombre=plan.nombre,
+                descripcion=plan.descripcion,
+                pasos=plan.pasos,
+                prioridad=(
+                    plan.prioridad
+                    if prioridad is None
+                    else float(
+                        prioridad
+                    )
+                ),
+                creada_por=creada_por,
+                proyecto_id=proyecto_id,
+                metadata={
+                    "confianza_plan":
+                        plan.confianza,
+
+                    "contexto":
+                        plan.contexto,
+
+                    "advertencias":
+                        plan.advertencias,
+
+                    "generada_automaticamente":
+                        True,
+                },
+            )
+        )
+
+        return tarea
+
+
+    def replanificar_tarea_escritorio(
+        self,
+        tarea_id: str,
+        motivo: str,
+        contexto_nuevo: dict[str, Any] | None = None,
+        objetivo_actualizado: str | None = None,
+    ) -> ResultadoReplanificacion:
+        return self.orquestador_tareas.replanificar_tarea(
+            tarea_id=tarea_id,
+            motivo=motivo,
+            contexto_nuevo=contexto_nuevo,
+            objetivo_actualizado=objetivo_actualizado,
+        )
+
+    def evaluar_replanificacion_tarea(
+        self,
+        tarea_id: str,
+        contexto_nuevo: dict[str, Any] | None = None,
+    ) -> ResultadoReplanificacion:
+        return self.orquestador_tareas.evaluar_y_replanificar_si_conviene(
+            tarea_id=tarea_id,
+            contexto_nuevo=contexto_nuevo,
         )

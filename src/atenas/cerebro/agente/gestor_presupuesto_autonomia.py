@@ -259,6 +259,38 @@ class GestorPresupuestoAutonomia:
                 "Verificar visualmente el resultado de una acción.",
             ),
 
+        "planificar_tarea_escritorio":
+            PoliticaAutonomia(
+                "planificar_tarea_escritorio",
+                NivelAutonomia.LIBRE,
+                0,
+                "Convertir un objetivo en un plan estructurado.",
+            ),
+
+        "crear_tarea_escritorio":
+            PoliticaAutonomia(
+                "crear_tarea_escritorio",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Crear una planificación persistente de escritorio.",
+            ),
+
+        "replanificar_tarea_escritorio":
+            PoliticaAutonomia(
+                "replanificar_tarea_escritorio",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Reemplazar únicamente pasos futuros de una tarea.",
+            ),
+
+        "continuar_tarea_escritorio":
+            PoliticaAutonomia(
+                "continuar_tarea_escritorio",
+                NivelAutonomia.CONTROLADA,
+                2,
+                "Continuar una tarea de escritorio por pasos acotados.",
+            ),
+
         # Confirmación
         "instalar_dependencia":
             PoliticaAutonomia(

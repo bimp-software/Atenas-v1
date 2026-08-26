@@ -591,6 +591,149 @@ class AgenteAtenas:
         }
 
     # =========================================================
+    # CAPACIDAD SISTEMA
+    # =========================================================
+
+    def _actuar_sistema(
+        self,
+        decision: Decision,
+    ) -> dict:
+        argumentos = decision.argumentos or {}
+        texto = str(argumentos.get("texto", "") or "")
+
+        try:
+            resultado = self.capacidad_sistema.ejecutar_desde_texto(
+                texto=texto,
+                es_autonoma=bool(decision.autonomo),
+                confirmada=False,
+            )
+        except Exception as error:
+            return {
+                "actuo": True,
+                "exito": False,
+                "decision": decision,
+                "plan": None,
+                "resultados": [],
+                "capacidad": "sistema_computador",
+                "accion_capacidad": decision.accion_capacidad,
+                "error": f"{type(error).__name__}: {error}",
+            }
+
+        if (
+            decision.pendiente_id
+            and not resultado.requiere_confirmacion
+        ):
+            if resultado.ok:
+                self.pendientes.completar(
+                    decision.pendiente_id,
+                    resultado=(
+                        resultado.mensaje
+                        or "Acción del sistema completada."
+                    ),
+                )
+            else:
+                self.pendientes.fallar(
+                    decision.pendiente_id,
+                    resultado=(
+                        resultado.error
+                        or resultado.mensaje
+                        or "Acción del sistema fallida."
+                    ),
+                )
+
+            actualizado = self.pendientes.obtener(
+                decision.pendiente_id
+            )
+            if actualizado is not None:
+                self.persistencia.guardar_pendiente(
+                    actualizado
+                )
+
+        return {
+            "actuo": bool(resultado.ok),
+            "exito": resultado.ok,
+            "decision": decision,
+            "plan": None,
+            "resultados": [resultado],
+            "capacidad": "sistema_computador",
+            "accion_capacidad": resultado.accion,
+            "requiere_confirmacion": (
+                resultado.requiere_confirmacion
+            ),
+            "mensaje": resultado.mensaje,
+            "datos": resultado.datos,
+            "error": resultado.error,
+        }
+
+    # =========================================================
+    # TAREA DE ESCRITORIO AUTÓNOMA
+    # =========================================================
+
+    def _actuar_tarea_escritorio(
+        self,
+        decision: Decision,
+    ) -> dict:
+        argumentos = decision.argumentos or {}
+
+        tarea_id = (
+            decision.tarea_escritorio_id
+            or argumentos.get("tarea_id")
+        )
+
+        if not tarea_id:
+            return {
+                "actuo": False,
+                "exito": False,
+                "decision": decision,
+                "capacidad": "sistema_computador",
+                "accion_capacidad": "continuar_tarea_escritorio",
+                "error": "tarea_escritorio_id_ausente",
+            }
+
+        resultados = (
+            self.capacidad_sistema
+            .continuar_tarea_escritorio(
+                tarea_id=str(tarea_id),
+                max_pasos=int(
+                    argumentos.get("max_pasos", 1)
+                    or 1
+                ),
+                es_autonoma=True,
+            )
+        )
+
+        if not resultados:
+            return {
+                "actuo": False,
+                "exito": False,
+                "decision": decision,
+                "capacidad": "sistema_computador",
+                "accion_capacidad": "continuar_tarea_escritorio",
+                "tarea_escritorio_id": str(tarea_id),
+                "error": "sin_resultado_tarea_escritorio",
+            }
+
+        ultimo = resultados[-1]
+
+        return {
+            "actuo": True,
+            "exito": bool(ultimo.ok),
+            "decision": decision,
+            "capacidad": "sistema_computador",
+            "accion_capacidad": "continuar_tarea_escritorio",
+            "tarea_escritorio_id": str(tarea_id),
+            "requiere_confirmacion": bool(
+                ultimo.requiere_confirmacion
+            ),
+            "mensaje": ultimo.mensaje,
+            "estado_tarea": ultimo.estado_tarea,
+            "estado_paso": ultimo.estado_paso,
+            "progreso": ultimo.progreso,
+            "resultados": resultados,
+            "error": ultimo.error,
+        }
+
+    # =========================================================
     # PENDIENTE TRADICIONAL
     # =========================================================
 
@@ -858,6 +1001,11 @@ class AgenteAtenas:
                         resultado.get(
                             "capacidad"
                         ),
+
+                    "tarea_escritorio_id":
+                        resultado.get(
+                            "tarea_escritorio_id"
+                        ),
                 },
             )
 
@@ -910,6 +1058,17 @@ class AgenteAtenas:
 
             return (
                 self._actuar_desarrollo(
+                    decision
+                )
+            )
+
+        if (
+            decision.tipo
+            == TipoDecisionAgente.CONTINUAR_TAREA_ESCRITORIO
+        ):
+
+            return (
+                self._actuar_tarea_escritorio(
                     decision
                 )
             )
