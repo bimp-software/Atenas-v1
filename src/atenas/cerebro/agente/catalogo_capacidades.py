@@ -98,6 +98,7 @@ _CAPACIDADES = (
             "resolver_confirmacion",
             "consultar_confirmaciones",
             "consultar_actividad_agente",
+            "consultar_estado_agente",
             "heartbeat_agente",
             "supervisar_sesion_autonoma",
             "crear_sesion_trabajo",

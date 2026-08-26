@@ -331,6 +331,62 @@ class GestorPresupuestoAutonomia:
                 "Actualizar progreso y estado de una sesión de trabajo.",
             ),
 
+        "supervisar_sesion_autonoma":
+            PoliticaAutonomia(
+                "supervisar_sesion_autonoma",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Mantener continuidad de una sesión de trabajo.",
+            ),
+
+        "solicitar_confirmacion":
+            PoliticaAutonomia(
+                "solicitar_confirmacion",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Crear una solicitud persistente de aprobación humana.",
+            ),
+
+        "resolver_confirmacion":
+            PoliticaAutonomia(
+                "resolver_confirmacion",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Resolver una confirmación pendiente.",
+            ),
+
+        "consultar_confirmaciones":
+            PoliticaAutonomia(
+                "consultar_confirmaciones",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Consultar confirmaciones pendientes.",
+            ),
+
+        "consultar_actividad_agente":
+            PoliticaAutonomia(
+                "consultar_actividad_agente",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Consultar el registro estructurado de actividad.",
+            ),
+
+        "heartbeat_agente":
+            PoliticaAutonomia(
+                "heartbeat_agente",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Ejecutar una unidad del ciclo autónomo del agente.",
+            ),
+
+        "consultar_estado_agente":
+            PoliticaAutonomia(
+                "consultar_estado_agente",
+                NivelAutonomia.LIBRE,
+                0,
+                "Consultar el estado consolidado del agente.",
+            ),
+
         # Confirmación
         "instalar_dependencia":
             PoliticaAutonomia(

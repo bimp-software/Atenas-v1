@@ -136,6 +136,12 @@ from .registro_actividad_agente import (
     RegistroActividadAgente,
 )
 
+from .estado_agente import (
+    EstadoOperativoAgente,
+    EstadoAgente,
+    GestorEstadoAgente,
+)
+
 from .motor_heartbeat_agente import (
     EstadoHeartbeat,
     ResultadoHeartbeat,
@@ -337,6 +343,9 @@ __all__ = [
     "EstadoHeartbeat",
     "ResultadoHeartbeat",
     "MotorHeartbeatAgente",
+    "EstadoOperativoAgente",
+    "EstadoAgente",
+    "GestorEstadoAgente",
 
     "TipoAccionSistema",
     "AccionSistema",

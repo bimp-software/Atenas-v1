@@ -24,6 +24,10 @@ from .gestor_sesion_trabajo import (
 
 from .gestor_confirmaciones import GestorConfirmaciones
 from .registro_actividad_agente import RegistroActividadAgente
+from .estado_agente import (
+    EstadoAgente,
+    GestorEstadoAgente,
+)
 from .motor_heartbeat_agente import (
     EstadoHeartbeat,
     ResultadoHeartbeat,
@@ -195,6 +199,11 @@ class AgenteAtenas:
         self.registro_actividad = (
             self.capacidad_sistema
             .registro_actividad
+        )
+
+        self.gestor_estado_agente = (
+            self.capacidad_sistema
+            .gestor_estado_agente
         )
 
         self.objetivos.cargar(
@@ -843,11 +852,9 @@ class AgenteAtenas:
     # =========================================================
     # REPLANIFICACIÓN AUTÓNOMA DE TAREA
     # =========================================================
-
     def _replanificar_tarea_escritorio(
         self,
         decision: Decision,
-        supervision_sesion: TipoDecisionSupervisorSesion
     ) -> dict:
 
         argumentos = (
@@ -867,9 +874,6 @@ class AgenteAtenas:
             return {
                 "actuo":
                     False,
-
-                "supervision_sesion":
-                    supervision_sesion,
 
                 "exito":
                     False,
@@ -966,29 +970,24 @@ class AgenteAtenas:
                 ),
 
             "pasos_conservados":
-                resultado
-                .pasos_conservados,
+                resultado.pasos_conservados,
 
             "pasos_reemplazados":
-                resultado
-                .pasos_reemplazados,
+                resultado.pasos_reemplazados,
 
             "pasos_nuevos":
-                resultado
-                .pasos_nuevos,
+                resultado.pasos_nuevos,
 
             "advertencias":
-                resultado
-                .advertencias,
+                resultado.advertencias,
 
             "metadata":
-                resultado
-                .metadata,
+                resultado.metadata,
 
             "error":
                 resultado.error,
         }
-
+    
     # =========================================================
     # PENDIENTE TRADICIONAL
     # =========================================================
@@ -1554,4 +1553,27 @@ class AgenteAtenas:
                 intervalo_segundos=intervalo_segundos,
                 detener_si_espera=detener_si_espera,
             )
+        )
+
+
+    # =========================================================
+    # ESTADO CONSOLIDADO
+    # =========================================================
+
+    def estado_actual(
+        self,
+    ) -> EstadoAgente:
+
+        return (
+            self.gestor_estado_agente
+            .construir()
+        )
+
+    def estado_actual_dict(
+        self,
+    ) -> dict:
+
+        return (
+            self.gestor_estado_agente
+            .como_dict()
         )

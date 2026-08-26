@@ -21,6 +21,8 @@ from .tareas_escritorio import (
     TareaEscritorio,
 )
 
+from .registro_tareas_escritorio import RegistroTareasEscritorio
+
 from .orquestador_tareas_escritorio import (
     OrquestadorTareasEscritorio,
     ResultadoPasoTarea,
@@ -56,6 +58,12 @@ from .gestor_confirmaciones import (
 from .registro_actividad_agente import (
     EventoActividad,
     RegistroActividadAgente,
+)
+
+from .estado_agente import (
+    EstadoOperativoAgente,
+    EstadoAgente,
+    GestorEstadoAgente,
 )
 
 from .supervisor_sesion_autonoma import (
@@ -132,6 +140,20 @@ class CapacidadSistema:
             or RegistroActividadAgente()
         )
 
+        self.gestor_estado_agente = (
+            GestorEstadoAgente(
+                contexto=self.contexto_operativo,
+                sesiones=self.gestor_sesiones,
+                tareas=(
+                    orquestador_tareas.registro
+                    if orquestador_tareas is not None
+                    else RegistroTareasEscritorio()
+                ),
+                confirmaciones=self.gestor_confirmaciones,
+                actividad=self.registro_actividad,
+            )
+        )
+
         self.planificador_tareas = (
             planificador_tareas
             or PlanificadorTareasEscritorio()
@@ -151,6 +173,11 @@ class CapacidadSistema:
                 replanificador=self.replanificador_tareas,
                 contexto_operativo=self.contexto_operativo,
             )
+        )
+
+        self.gestor_estado_agente.tareas = (
+            self.orquestador_tareas
+            .registro
         )
 
         self.supervisor_sesion = (
@@ -1767,4 +1794,27 @@ class CapacidadSistema:
         return (
             self.registro_actividad
             .resumen()
+        )
+
+
+    # =========================================================
+    # ESTADO CONSOLIDADO DEL AGENTE
+    # =========================================================
+
+    def obtener_estado_agente(
+        self,
+    ) -> EstadoAgente:
+
+        return (
+            self.gestor_estado_agente
+            .construir()
+        )
+
+    def estado_agente_dict(
+        self,
+    ) -> dict[str, Any]:
+
+        return (
+            self.gestor_estado_agente
+            .como_dict()
         )
