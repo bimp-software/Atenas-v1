@@ -11,6 +11,7 @@ from .accion_gui import AccionGUIPlanificada, TipoAccionGUI
 from .ciclo_accion_gui import CicloAccionGUI
 from .ejecutor_sistema import AccionSistema, EjecutorSistema, TipoAccionSistema
 from .registro_tareas_escritorio import RegistroTareasEscritorio
+from .gestor_contexto_operativo import GestorContextoOperativo
 from .replanificador_tareas_escritorio import (
     ReplanificadorTareasEscritorio,
     ResultadoReplanificacion,
@@ -46,12 +47,16 @@ class OrquestadorTareasEscritorio:
         ciclo_gui: CicloAccionGUI,
         registro: RegistroTareasEscritorio | None = None,
         replanificador: ReplanificadorTareasEscritorio | None = None,
+        contexto_operativo: GestorContextoOperativo | None = None,
     ):
         self.ejecutor_sistema = ejecutor_sistema
         self.ciclo_gui = ciclo_gui
         self.registro = registro or RegistroTareasEscritorio()
         self.replanificador = (
             replanificador or ReplanificadorTareasEscritorio()
+        )
+        self.contexto_operativo = (
+            contexto_operativo or GestorContextoOperativo()
         )
 
     def crear_tarea(
@@ -75,6 +80,12 @@ class OrquestadorTareasEscritorio:
             metadata=metadata or {},
         )
         self.registro.guardar(tarea)
+        self.contexto_operativo.actualizar(
+            ultima_tarea_id=tarea.id,
+            metadata={
+                "ultima_tarea_nombre": tarea.nombre,
+            },
+        )
         return tarea
 
     @staticmethod
@@ -218,6 +229,59 @@ class OrquestadorTareasEscritorio:
                 tarea.metadata["replanificacion_sugerida"] = True
 
         self.registro.guardar(tarea)
+
+        self.contexto_operativo.actualizar(
+            ultima_tarea_id=tarea.id,
+            ultimo_error=(
+                resultado.get("error")
+                if not resultado.get("ok", False)
+                else None
+            ),
+            metadata={
+                "estado_ultima_tarea":
+                    tarea.estado.value,
+
+                "progreso_ultima_tarea":
+                    tarea.progreso,
+
+                "ultimo_paso_tarea":
+                    paso.descripcion,
+            },
+        )
+
+        datos_contexto = (
+            resultado.get(
+                "datos",
+                {}
+            )
+            or {}
+        )
+
+        ruta_contexto = (
+            datos_contexto.get("ruta")
+            or datos_contexto.get("archivo")
+            or datos_contexto.get("carpeta")
+        )
+
+        if ruta_contexto:
+
+            self.contexto_operativo.registrar_archivo(
+                str(
+                    ruta_contexto
+                )
+            )
+
+        titulo_contexto = (
+            datos_contexto.get("titulo")
+        )
+
+        if titulo_contexto:
+
+            self.contexto_operativo.actualizar(
+                ventana_activa=str(
+                    titulo_contexto
+                )
+            )
 
         return ResultadoPasoTarea(
             ok=bool(resultado.get("ok", False)),
@@ -471,10 +535,20 @@ class OrquestadorTareasEscritorio:
                 error="replanificacion_no_necesaria",
             )
 
+        contexto_combinado = (
+            self.contexto_operativo
+            .para_planificacion()
+        )
+
+        contexto_combinado.update(
+            contexto_nuevo
+            or {}
+        )
+
         return self.replanificar_tarea(
             tarea_id=tarea_id,
             motivo=motivo,
-            contexto_nuevo=contexto_nuevo,
+            contexto_nuevo=contexto_combinado,
         )
 
     def ejecutar_hasta_pausa(

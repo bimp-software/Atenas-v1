@@ -36,6 +36,17 @@ from .replanificador_tareas_escritorio import (
     ReplanificadorTareasEscritorio,
 )
 
+from .gestor_contexto_operativo import (
+    ContextoOperativo,
+    GestorContextoOperativo,
+)
+
+from .gestor_sesion_trabajo import (
+    EstadoSesionTrabajo,
+    SesionTrabajo,
+    GestorSesionTrabajo,
+)
+
 
 @dataclass
 class ResultadoCapacidadSistema:
@@ -66,6 +77,8 @@ class CapacidadSistema:
         autonomia: GestorPresupuestoAutonomia | None = None,
         orquestador_tareas: OrquestadorTareasEscritorio | None = None,
         planificador_tareas: PlanificadorTareasEscritorio | None = None,
+        contexto_operativo: GestorContextoOperativo | None = None,
+        gestor_sesiones: GestorSesionTrabajo | None = None,
     ):
 
         self.ejecutor = (
@@ -76,6 +89,16 @@ class CapacidadSistema:
         self.autonomia = (
             autonomia
             or GestorPresupuestoAutonomia()
+        )
+
+        self.contexto_operativo = (
+            contexto_operativo
+            or GestorContextoOperativo()
+        )
+
+        self.gestor_sesiones = (
+            gestor_sesiones
+            or GestorSesionTrabajo()
         )
 
         self.planificador_tareas = (
@@ -95,6 +118,7 @@ class CapacidadSistema:
                 ejecutor_sistema=self.ejecutor,
                 ciclo_gui=self.ejecutor.ciclo_accion_gui,
                 replanificador=self.replanificador_tareas,
+                contexto_operativo=self.contexto_operativo,
             )
         )
 
@@ -1282,11 +1306,21 @@ class CapacidadSistema:
         contexto: dict[str, Any] | None = None,
     ) -> PlanTareaEscritorio:
 
+        contexto_base = (
+            self.contexto_operativo
+            .para_planificacion()
+        )
+
+        contexto_base.update(
+            contexto
+            or {}
+        )
+
         return (
             self.planificador_tareas
             .planificar(
                 objetivo=objetivo,
-                contexto=contexto,
+                contexto=contexto_base,
             )
         )
 
@@ -1336,6 +1370,34 @@ class CapacidadSistema:
             )
         )
 
+        sesion_activa = (
+            self.gestor_sesiones
+            .activa()
+        )
+
+        if sesion_activa is not None:
+
+            self.gestor_sesiones.asociar_tarea(
+                sesion_id=sesion_activa.id,
+                tarea_id=tarea.id,
+                hacer_actual=True,
+            )
+
+        self.contexto_operativo.actualizar(
+            ultima_tarea_id=tarea.id,
+            proyecto_actual_id=(
+                proyecto_id
+                or self.contexto_operativo.cargar().proyecto_actual_id
+            ),
+            metadata={
+                "ultima_tarea_generada":
+                    tarea.nombre,
+
+                "confianza_ultimo_plan":
+                    plan.confianza,
+            },
+        )
+
         return tarea
 
 
@@ -1361,4 +1423,156 @@ class CapacidadSistema:
         return self.orquestador_tareas.evaluar_y_replanificar_si_conviene(
             tarea_id=tarea_id,
             contexto_nuevo=contexto_nuevo,
+        )
+
+
+    # =========================================================
+    # CONTEXTO OPERATIVO
+    # =========================================================
+
+    def obtener_contexto_operativo(
+        self,
+    ) -> ContextoOperativo:
+
+        return (
+            self.contexto_operativo
+            .cargar()
+        )
+
+    def resumen_contexto_operativo(
+        self,
+    ) -> dict[str, Any]:
+
+        return (
+            self.contexto_operativo
+            .resumen()
+        )
+
+    def actualizar_contexto_operativo(
+        self,
+        **cambios: Any,
+    ) -> ContextoOperativo:
+
+        return (
+            self.contexto_operativo
+            .actualizar(
+                **cambios
+            )
+        )
+
+
+    # =========================================================
+    # SESIÓN DE TRABAJO
+    # =========================================================
+
+    def crear_sesion_trabajo(
+        self,
+        nombre: str,
+        objetivo_superior: str,
+        proyecto_id: str | None = None,
+        resultado_esperado: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> SesionTrabajo:
+
+        sesion = (
+            self.gestor_sesiones
+            .crear(
+                nombre=nombre,
+                objetivo_superior=objetivo_superior,
+                proyecto_id=proyecto_id,
+                resultado_esperado=resultado_esperado,
+                metadata=metadata,
+                activar=True,
+            )
+        )
+
+        self.contexto_operativo.actualizar(
+            proyecto_actual_id=(
+                proyecto_id
+                or self.contexto_operativo.cargar().proyecto_actual_id
+            ),
+            metadata={
+                "sesion_trabajo_id":
+                    sesion.id,
+
+                "sesion_trabajo_nombre":
+                    sesion.nombre,
+
+                "objetivo_superior":
+                    sesion.objetivo_superior,
+            },
+        )
+
+        return sesion
+
+    def sesion_trabajo_activa(
+        self,
+    ) -> SesionTrabajo | None:
+
+        return (
+            self.gestor_sesiones
+            .activa()
+        )
+
+    def resumen_sesion_trabajo(
+        self,
+    ) -> dict[str, Any]:
+
+        return (
+            self.gestor_sesiones
+            .resumen_activa()
+        )
+
+    def pausar_sesion_trabajo(
+        self,
+        sesion_id: str,
+    ) -> SesionTrabajo | None:
+
+        return (
+            self.gestor_sesiones
+            .pausar(
+                sesion_id
+            )
+        )
+
+    def reanudar_sesion_trabajo(
+        self,
+        sesion_id: str,
+    ) -> SesionTrabajo | None:
+
+        return (
+            self.gestor_sesiones
+            .reanudar(
+                sesion_id
+            )
+        )
+
+    def completar_sesion_trabajo(
+        self,
+        sesion_id: str,
+        resultado: str | None = None,
+    ) -> SesionTrabajo | None:
+
+        return (
+            self.gestor_sesiones
+            .completar(
+                sesion_id=sesion_id,
+                resultado=resultado,
+            )
+        )
+
+    def asociar_tarea_a_sesion(
+        self,
+        sesion_id: str,
+        tarea_id: str,
+        hacer_actual: bool = True,
+    ) -> SesionTrabajo | None:
+
+        return (
+            self.gestor_sesiones
+            .asociar_tarea(
+                sesion_id=sesion_id,
+                tarea_id=tarea_id,
+                hacer_actual=hacer_actual,
+            )
         )

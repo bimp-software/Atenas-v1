@@ -113,6 +113,17 @@ from .replanificador_tareas_escritorio import (
     ReplanificadorTareasEscritorio,
 )
 
+from .gestor_contexto_operativo import (
+    ContextoOperativo,
+    GestorContextoOperativo,
+)
+
+from .gestor_sesion_trabajo import (
+    EstadoSesionTrabajo,
+    SesionTrabajo,
+    GestorSesionTrabajo,
+)
+
 from .ejecutor_sistema import (
     TipoAccionSistema,
     AccionSistema,
@@ -282,6 +293,12 @@ __all__ = [
     "PlanificadorTareasEscritorio",
     "ResultadoReplanificacion",
     "ReplanificadorTareasEscritorio",
+    "ContextoOperativo",
+    "GestorContextoOperativo",
+
+    "EstadoSesionTrabajo",
+    "SesionTrabajo",
+    "GestorSesionTrabajo",
 
     "TipoAccionSistema",
     "AccionSistema",

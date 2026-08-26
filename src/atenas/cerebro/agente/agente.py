@@ -14,6 +14,14 @@ from .pendientes import (
 
 from .estado_mundo import EstadoMundo
 
+from .gestor_contexto_operativo import (
+    GestorContextoOperativo,
+)
+
+from .gestor_sesion_trabajo import (
+    GestorSesionTrabajo,
+)
+
 from .decision_engine import (
     Decision,
     DecisionEngine,
@@ -76,6 +84,14 @@ class AgenteAtenas:
             CapacidadSistema
             | None
         ) = None,
+        contexto_operativo: (
+            GestorContextoOperativo
+            | None
+        ) = None,
+        gestor_sesiones: (
+            GestorSesionTrabajo
+            | None
+        ) = None,
     ):
 
         self.storage = (
@@ -113,9 +129,33 @@ class AgenteAtenas:
             )
         )
 
-        self.capacidad_sistema = (
-            capacidad_sistema
-            or CapacidadSistema()
+        if capacidad_sistema is None:
+
+            self.capacidad_sistema = (
+                CapacidadSistema(
+                    contexto_operativo=(
+                        contexto_operativo
+                    )
+                )
+            )
+
+        else:
+
+            self.capacidad_sistema = (
+                capacidad_sistema
+            )
+
+        # El agente y CapacidadSistema deben compartir exactamente
+        # el mismo GestorContextoOperativo para evitar dos memorias
+        # operativas distintas.
+        self.contexto_operativo = (
+            self.capacidad_sistema
+            .contexto_operativo
+        )
+
+        self.gestor_sesiones = (
+            gestor_sesiones
+            or self.capacidad_sistema.gestor_sesiones
         )
 
         self.objetivos.cargar(
@@ -279,6 +319,34 @@ class AgenteAtenas:
                     permitir_iniciativa_desarrollo
                 ),
             )
+        )
+
+        self.contexto_operativo.registrar_decision(
+            tipo=decision.tipo.value,
+            motivo=decision.motivo,
+            metadata={
+                "prioridad":
+                    decision.prioridad,
+
+                "capacidad":
+                    decision.capacidad,
+
+                "accion_capacidad":
+                    decision.accion_capacidad,
+
+                "proyecto_id":
+                    decision.proyecto_id,
+
+                "tarea_escritorio_id":
+                    decision.tarea_escritorio_id,
+
+                "sesion_trabajo_id":
+                    (
+                        self.gestor_sesiones.activa().id
+                        if self.gestor_sesiones.activa()
+                        else None
+                    ),
+            },
         )
 
         if not decision.actuar:

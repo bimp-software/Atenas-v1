@@ -291,6 +291,46 @@ class GestorPresupuestoAutonomia:
                 "Continuar una tarea de escritorio por pasos acotados.",
             ),
 
+        "consultar_contexto_operativo":
+            PoliticaAutonomia(
+                "consultar_contexto_operativo",
+                NivelAutonomia.LIBRE,
+                0,
+                "Consultar memoria operativa local.",
+            ),
+
+        "actualizar_contexto_operativo":
+            PoliticaAutonomia(
+                "actualizar_contexto_operativo",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Actualizar contexto operacional persistente.",
+            ),
+
+        "consultar_sesion_trabajo":
+            PoliticaAutonomia(
+                "consultar_sesion_trabajo",
+                NivelAutonomia.LIBRE,
+                0,
+                "Consultar la sesión de trabajo operativa actual.",
+            ),
+
+        "crear_sesion_trabajo":
+            PoliticaAutonomia(
+                "crear_sesion_trabajo",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Crear una sesión persistente para un objetivo superior.",
+            ),
+
+        "actualizar_sesion_trabajo":
+            PoliticaAutonomia(
+                "actualizar_sesion_trabajo",
+                NivelAutonomia.CONTROLADA,
+                1,
+                "Actualizar progreso y estado de una sesión de trabajo.",
+            ),
+
         # Confirmación
         "instalar_dependencia":
             PoliticaAutonomia(
