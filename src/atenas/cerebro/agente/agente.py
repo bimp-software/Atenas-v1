@@ -22,6 +22,14 @@ from .gestor_sesion_trabajo import (
     GestorSesionTrabajo,
 )
 
+from .gestor_confirmaciones import GestorConfirmaciones
+from .registro_actividad_agente import RegistroActividadAgente
+from .motor_heartbeat_agente import (
+    EstadoHeartbeat,
+    ResultadoHeartbeat,
+    MotorHeartbeatAgente,
+)
+
 from .supervisor_sesion_autonoma import (
     TipoDecisionSupervisorSesion,
 )
@@ -96,6 +104,14 @@ class AgenteAtenas:
             GestorSesionTrabajo
             | None
         ) = None,
+        gestor_confirmaciones: (
+            GestorConfirmaciones
+            | None
+        ) = None,
+        registro_actividad: (
+            RegistroActividadAgente
+            | None
+        ) = None,
     ):
 
         self.storage = (
@@ -139,7 +155,16 @@ class AgenteAtenas:
                 CapacidadSistema(
                     contexto_operativo=(
                         contexto_operativo
-                    )
+                    ),
+                    gestor_sesiones=(
+                        gestor_sesiones
+                    ),
+                    gestor_confirmaciones=(
+                        gestor_confirmaciones
+                    ),
+                    registro_actividad=(
+                        registro_actividad
+                    ),
                 )
             )
 
@@ -158,8 +183,18 @@ class AgenteAtenas:
         )
 
         self.gestor_sesiones = (
-            gestor_sesiones
-            or self.capacidad_sistema.gestor_sesiones
+            self.capacidad_sistema
+            .gestor_sesiones
+        )
+
+        self.gestor_confirmaciones = (
+            self.capacidad_sistema
+            .gestor_confirmaciones
+        )
+
+        self.registro_actividad = (
+            self.capacidad_sistema
+            .registro_actividad
         )
 
         self.objetivos.cargar(
@@ -1466,5 +1501,57 @@ class AgenteAtenas:
                 texto=texto,
                 es_autonoma=False,
                 confirmada=confirmada,
+            )
+        )
+
+
+    # =========================================================
+    # HEARTBEAT AUTÓNOMO
+    # =========================================================
+
+    def _obtener_heartbeat(
+        self,
+    ) -> MotorHeartbeatAgente:
+
+        heartbeat = getattr(
+            self,
+            "_heartbeat_agente",
+            None,
+        )
+
+        if heartbeat is None:
+            heartbeat = MotorHeartbeatAgente(
+                supervisar=self.supervisar_sesion,
+                actuar=self.actuar,
+                confirmaciones=self.gestor_confirmaciones,
+                actividad=self.registro_actividad,
+            )
+
+            self._heartbeat_agente = heartbeat
+
+        return heartbeat
+
+    def tick_autonomo(
+        self,
+    ) -> ResultadoHeartbeat:
+
+        return (
+            self._obtener_heartbeat()
+            .tick()
+        )
+
+    def ejecutar_ciclos_autonomos(
+        self,
+        max_ciclos: int = 1,
+        intervalo_segundos: float = 0.25,
+        detener_si_espera: bool = True,
+    ) -> list[ResultadoHeartbeat]:
+
+        return (
+            self._obtener_heartbeat()
+            .run(
+                max_ciclos=max_ciclos,
+                intervalo_segundos=intervalo_segundos,
+                detener_si_espera=detener_si_espera,
             )
         )

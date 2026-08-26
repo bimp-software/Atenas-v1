@@ -47,6 +47,17 @@ from .gestor_sesion_trabajo import (
     GestorSesionTrabajo,
 )
 
+from .gestor_confirmaciones import (
+    EstadoConfirmacion,
+    SolicitudConfirmacion,
+    GestorConfirmaciones,
+)
+
+from .registro_actividad_agente import (
+    EventoActividad,
+    RegistroActividadAgente,
+)
+
 from .supervisor_sesion_autonoma import (
     TipoDecisionSupervisorSesion,
     DecisionSupervisorSesion,
@@ -87,6 +98,8 @@ class CapacidadSistema:
         contexto_operativo: GestorContextoOperativo | None = None,
         gestor_sesiones: GestorSesionTrabajo | None = None,
         supervisor_sesion: SupervisorSesionAutonoma | None = None,
+        gestor_confirmaciones: GestorConfirmaciones | None = None,
+        registro_actividad: RegistroActividadAgente | None = None,
     ):
 
         self.ejecutor = (
@@ -107,6 +120,16 @@ class CapacidadSistema:
         self.gestor_sesiones = (
             gestor_sesiones
             or GestorSesionTrabajo()
+        )
+
+        self.gestor_confirmaciones = (
+            gestor_confirmaciones
+            or GestorConfirmaciones()
+        )
+
+        self.registro_actividad = (
+            registro_actividad
+            or RegistroActividadAgente()
         )
 
         self.planificador_tareas = (
@@ -1626,4 +1649,122 @@ class CapacidadSistema:
                     self.crear_tarea_desde_objetivo
                 ),
             )
+        )
+
+
+    # =========================================================
+    # CONFIRMACIONES
+    # =========================================================
+
+    def solicitar_confirmacion(
+        self,
+        accion: str,
+        descripcion: str,
+        riesgo: int = 1,
+        motivo: str = "",
+        tarea_id: str | None = None,
+        proyecto_id: str | None = None,
+        argumentos: dict[str, Any] | None = None,
+    ) -> SolicitudConfirmacion:
+
+        sesion = self.gestor_sesiones.activa()
+
+        item = self.gestor_confirmaciones.crear(
+            accion=accion,
+            descripcion=descripcion,
+            riesgo=riesgo,
+            motivo=motivo,
+            sesion_id=(sesion.id if sesion else None),
+            tarea_id=tarea_id,
+            proyecto_id=proyecto_id,
+            argumentos=argumentos,
+        )
+
+        self.registro_actividad.registrar(
+            categoria="confirmacion",
+            accion="solicitar",
+            mensaje=descripcion,
+            sesion_id=item.sesion_id,
+            tarea_id=tarea_id,
+            proyecto_id=proyecto_id,
+            datos={
+                "confirmacion_id": item.id,
+                "riesgo": item.riesgo,
+            },
+        )
+
+        return item
+
+    def resolver_confirmacion(
+        self,
+        confirmacion_id: str,
+        aprobar: bool,
+        motivo: str | None = None,
+    ) -> SolicitudConfirmacion | None:
+
+        item = self.gestor_confirmaciones.resolver(
+            confirmacion_id=confirmacion_id,
+            aprobar=aprobar,
+            motivo=motivo,
+        )
+
+        if item is not None:
+            self.registro_actividad.registrar(
+                categoria="confirmacion",
+                accion=(
+                    "aprobar"
+                    if aprobar
+                    else "rechazar"
+                ),
+                mensaje=item.descripcion,
+                ok=True,
+                sesion_id=item.sesion_id,
+                tarea_id=item.tarea_id,
+                proyecto_id=item.proyecto_id,
+                datos={
+                    "confirmacion_id": item.id,
+                },
+            )
+
+        return item
+
+    def confirmaciones_pendientes(
+        self,
+    ) -> list[SolicitudConfirmacion]:
+
+        return (
+            self.gestor_confirmaciones
+            .pendientes()
+        )
+
+    def resumen_confirmaciones(
+        self,
+    ) -> dict[str, Any]:
+
+        return (
+            self.gestor_confirmaciones
+            .resumen()
+        )
+
+    # =========================================================
+    # ACTIVIDAD
+    # =========================================================
+
+    def actividad_reciente(
+        self,
+        limite: int = 50,
+    ) -> list[dict[str, Any]]:
+
+        return (
+            self.registro_actividad
+            .recientes(limite)
+        )
+
+    def resumen_actividad(
+        self,
+    ) -> dict[str, Any]:
+
+        return (
+            self.registro_actividad
+            .resumen()
         )

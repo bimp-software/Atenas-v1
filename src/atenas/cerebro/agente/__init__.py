@@ -124,6 +124,24 @@ from .gestor_sesion_trabajo import (
     GestorSesionTrabajo,
 )
 
+
+from .gestor_confirmaciones import (
+    EstadoConfirmacion,
+    SolicitudConfirmacion,
+    GestorConfirmaciones,
+)
+
+from .registro_actividad_agente import (
+    EventoActividad,
+    RegistroActividadAgente,
+)
+
+from .motor_heartbeat_agente import (
+    EstadoHeartbeat,
+    ResultadoHeartbeat,
+    MotorHeartbeatAgente,
+)
+
 from .supervisor_sesion_autonoma import (
     TipoDecisionSupervisorSesion,
     DecisionSupervisorSesion,
@@ -311,6 +329,14 @@ __all__ = [
     "DecisionSupervisorSesion",
     "ResultadoSupervisorSesion",
     "SupervisorSesionAutonoma",
+    "EstadoConfirmacion",
+    "SolicitudConfirmacion",
+    "GestorConfirmaciones",
+    "EventoActividad",
+    "RegistroActividadAgente",
+    "EstadoHeartbeat",
+    "ResultadoHeartbeat",
+    "MotorHeartbeatAgente",
 
     "TipoAccionSistema",
     "AccionSistema",
