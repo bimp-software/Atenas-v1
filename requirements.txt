@@ -1,0 +1,57 @@
+# ============================================================
+# ATENAS - Dependencias de Python
+# Proyecto: https://github.com/bimp-software/Atenas-v1
+# Python recomendado: 3.11+
+# ============================================================
+
+# ------------------------------------------------------------
+# Interfaz web
+# ------------------------------------------------------------
+Flask
+
+# ------------------------------------------------------------
+# LLM local - Ollama
+# Ollama debe instalarse también como aplicación en el sistema.
+# Este paquete es solamente el cliente Python.
+# ------------------------------------------------------------
+ollama
+
+# ------------------------------------------------------------
+# Memoria semántica / vectorial / embeddings
+# ------------------------------------------------------------
+numpy
+sentence-transformers
+
+# ------------------------------------------------------------
+# Entrada de voz - Speech to Text
+# ------------------------------------------------------------
+sounddevice
+faster-whisper
+
+# ------------------------------------------------------------
+# Salida de voz - Text to Speech
+# ------------------------------------------------------------
+pyttsx3
+
+# SAPI5 / COM en Windows.
+# Se instala únicamente cuando el sistema operativo es Windows.
+pywin32; platform_system == "Windows"
+
+# ------------------------------------------------------------
+# Agente - automatización de escritorio
+# ------------------------------------------------------------
+PyAutoGUI
+
+# Capturas de pantalla / procesamiento básico de imágenes.
+# PIL se instala mediante el paquete Pillow.
+Pillow
+
+# ------------------------------------------------------------
+# Investigación / búsquedas web
+# ------------------------------------------------------------
+ddgs
+
+# ------------------------------------------------------------
+# Desarrollo y pruebas
+# ------------------------------------------------------------
+pytest

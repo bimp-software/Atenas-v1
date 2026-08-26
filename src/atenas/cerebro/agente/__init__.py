@@ -136,6 +136,10 @@ from .registro_actividad_agente import (
     RegistroActividadAgente,
 )
 
+from .runtime_agente import (
+    RuntimeAtenas,
+)
+
 from .estado_agente import (
     EstadoOperativoAgente,
     EstadoAgente,
@@ -346,6 +350,7 @@ __all__ = [
     "EstadoOperativoAgente",
     "EstadoAgente",
     "GestorEstadoAgente",
+    "RuntimeAtenas",
 
     "TipoAccionSistema",
     "AccionSistema",

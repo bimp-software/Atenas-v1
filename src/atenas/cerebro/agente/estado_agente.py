@@ -170,9 +170,24 @@ class GestorEstadoAgente:
         progreso = 0.0
 
         if sesion is not None:
-            progreso = float(
+            progreso_sesion = float(
                 sesion.progreso
             )
+
+            # Si la sesión aún no ha recalculado su progreso pero
+            # existe una tarea actual con avance real, usamos el
+            # valor más informativo.
+            if tarea is not None:
+                progreso_tarea = float(
+                    tarea.progreso
+                )
+
+                progreso = max(
+                    progreso_sesion,
+                    progreso_tarea,
+                )
+            else:
+                progreso = progreso_sesion
 
         elif tarea is not None:
             progreso = float(
